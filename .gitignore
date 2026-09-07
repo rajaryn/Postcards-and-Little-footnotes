@@ -1,0 +1,8 @@
+.env
+
+backend/tests
+backend/.venv
+backend/__pycache__
+backend/.pytest_cache
+
+tidb-ca.pem

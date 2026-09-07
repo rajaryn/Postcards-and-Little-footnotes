@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#faf8f5" />
+  <meta name="description" content="Postcards & Little Footnotes — A personal trip memory tool for capturing visual snapshots and quiet notes." />
+  
+  <title>Postcards & Little Footnotes</title>
+  
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  
+  <!-- Google Fonts: Editorial Serif, Refined Sans, and Handwritten Accent -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <link rel="stylesheet" href="/css/reset.css?v=2.1" />
+  <link rel="stylesheet" href="/css/styles.css?v=2.1" />
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- App Header -->
+    <header class="app-header">
+      <div id="header-left">
+        <button id="btn-back-to-trips" class="header-back-btn" style="display: none;" aria-label="Back to Collection">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>collection</span>
+        </button>
+        <div id="brand-header-title" class="brand-title title-serif">
+          <span>Postcards &amp; Little Footnotes</span>
+        </div>
+      </div>
+      <div id="header-right"></div>
+    </header>
+
+    <!-- VIEW 1: TRIPS COLLECTION -->
+    <main id="view-trips" class="view active">
+      <div class="view-header collection-header">
+        <h1 class="view-heading title-serif">Postcards<br>&amp; Little Footnotes</h1>
+        <p class="view-subheading">A box of memories from trips that happen to be digital.</p>
+      </div>
+
+      <div id="trips-container" class="trips-collection">
+        <!-- Dynamically rendered collection entries -->
+      </div>
+
+      <div class="collection-actions">
+        <button id="btn-open-create-trip" class="btn-quiet-action">
+          <span>+ start a new trip</span>
+        </button>
+      </div>
+    </main>
+
+    <!-- VIEW 2: TRIP TIMELINE -->
+    <main id="view-timeline" class="view">
+      <div class="timeline-header">
+        <h1 id="timeline-trip-name" class="timeline-trip-title title-serif">Trip</h1>
+        <p id="timeline-trip-dates" class="timeline-trip-dates"></p>
+      </div>
+
+      <div id="timeline-moments-container" class="timeline-container">
+        <!-- Dynamically grouped day chapters & varied compositions -->
+      </div>
+
+      <!-- Floating Capture Action -->
+      <button id="btn-open-capture" class="fab-capture" aria-label="Add a Moment">
+        <span class="fab-icon">+</span>
+        <span>add a moment</span>
+      </button>
+    </main>
+
+  </div>
+
+  <!-- MODAL: CREATE TRIP (Envelope Style) -->
+  <div id="modal-create-trip" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-content paper-modal">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 class="modal-title title-serif">new trip</h2>
+        <button id="btn-close-create-trip" class="close-btn" aria-label="Close">&times;</button>
+      </div>
+      <form id="form-create-trip">
+        <div class="form-group">
+          <label class="form-label" for="input-trip-name">what are we calling this one?</label>
+          <input type="text" id="input-trip-name" class="form-input paper-input title-serif" placeholder="e.g. Himachal, Kyoto, Weekend in Goa" required autofocus />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="input-trip-start">when?</label>
+          <div class="form-row">
+            <input type="date" id="input-trip-start" class="form-input paper-input" placeholder="Start date" />
+            <input type="date" id="input-trip-end" class="form-input paper-input" placeholder="End date" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="btn-cancel-create-trip" class="btn-secondary">cancel</button>
+          <button type="submit" class="btn-primary">begin</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CAPTURE MOMENT (Blank Paper Style) -->
+  <div id="modal-capture" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-content paper-modal">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 class="modal-title title-serif">capture something</h2>
+        <button id="btn-close-capture" class="close-btn" aria-label="Close">&times;</button>
+      </div>
+      <form id="form-capture">
+        <!-- Hidden file input -->
+        <input type="file" id="input-moment-photo" accept="image/*" style="display: none;" />
+
+        <!-- Postcard Photo Picker -->
+        <div id="photo-upload-zone" class="image-upload-zone">
+          <div id="photo-upload-prompt">
+            <svg style="margin: 0 auto 8px auto; color: var(--text-tertiary);" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <div style="font-weight: 500; color: var(--text-primary);">[ add a photograph ]</div>
+            <div style="font-size: 0.82rem; color: var(--text-tertiary); margin-top: 2px;">snap a photo or select from camera roll</div>
+          </div>
+          <div id="photo-preview-wrapper" class="image-preview-wrapper" style="display: none;">
+            <img id="photo-preview-img" class="image-preview-img" alt="Postcard preview" />
+            <button type="button" id="btn-remove-photo" class="remove-photo-btn">remove</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-moment-caption">what happened?</label>
+          <textarea id="input-moment-caption" class="form-textarea paper-textarea footnote-input" placeholder="A sentence, a strange little detail, or something you don't want to forget..." data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-moment-datetime">when did this happen?</label>
+          <input type="datetime-local" id="input-moment-datetime" class="form-input paper-input" />
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="btn-cancel-capture" class="btn-secondary">cancel</button>
+          <button type="submit" id="btn-submit-capture" class="btn-primary">
+            <span>save to memory</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Scripts with cache-busting -->
+  <script src="/js/api.js?v=2.2"></script>
+  <script src="/js/trips.js?v=2.2"></script>
+  <script src="/js/moments.js?v=2.2"></script>
+  <script src="/js/capture.js?v=2.2"></script>
+  <script src="/js/app.js?v=2.2"></script>
+</body>
+</html>
