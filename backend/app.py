@@ -15,6 +15,7 @@ logging.basicConfig(
 from config import Config
 import db
 from db import DatabaseError
+from routes.auth import auth_bp
 from routes.trips import trips_bp
 from routes.moments import moments_bp
 from routes.uploads import uploads_bp
@@ -55,6 +56,7 @@ def create_app(test_config=None):
     app.teardown_appcontext(lambda e=None: db.close_db(e))
 
     # Register API Blueprints
+    app.register_blueprint(auth_bp)
     app.register_blueprint(trips_bp)
     app.register_blueprint(moments_bp)
     app.register_blueprint(uploads_bp)

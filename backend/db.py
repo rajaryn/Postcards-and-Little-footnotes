@@ -140,16 +140,42 @@ def init_db(app=None) -> bool:
                 cur.execute(f"CREATE DATABASE IF NOT EXISTS `{Config.TIDB_DATABASE}`;")
                 cur.execute(f"USE `{Config.TIDB_DATABASE}`;")
                 
+                # users table
                 cur.execute("""
-                CREATE TABLE IF NOT EXISTS trips (
+                CREATE TABLE IF NOT EXISTS users (
                     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                    name VARCHAR(255) NOT NULL,
-                    start_date DATE NULL,
-                    end_date DATE NULL,
+                    email VARCHAR(255) NOT NULL UNIQUE,
+                    username VARCHAR(100) NULL,
+                    password_hash VARCHAR(255) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 """)
 
+                # trips table
+                cur.execute("""
+                CREATE TABLE IF NOT EXISTS trips (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    user_id BIGINT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    start_date DATE NULL,
+                    end_date DATE NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                """)
+
+                # Check for user_id column in trips
+                cur.execute("""
+                    SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'trips' AND COLUMN_NAME = 'user_id';
+                """, (Config.TIDB_DATABASE,))
+                if not cur.fetchone():
+                    try:
+                        cur.execute("ALTER TABLE trips ADD COLUMN user_id BIGINT NULL;")
+                    except Exception:
+                        pass
+
+                # moments table
                 cur.execute("""
                 CREATE TABLE IF NOT EXISTS moments (
                     id BIGINT PRIMARY KEY AUTO_INCREMENT,

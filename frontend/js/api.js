@@ -3,10 +3,48 @@
  */
 const API = {
   baseUrl: "/api",
+  tokenKey: "postcards_auth_token",
+  rememberKey: "postcards_remember_device",
+
+  getToken() {
+    return localStorage.getItem(this.tokenKey) || sessionStorage.getItem(this.tokenKey) || "";
+  },
+
+  setToken(token, remember = true) {
+    if (token) {
+      if (remember) {
+        localStorage.setItem(this.tokenKey, token);
+        localStorage.setItem(this.rememberKey, "true");
+        sessionStorage.removeItem(this.tokenKey);
+      } else {
+        sessionStorage.setItem(this.tokenKey, token);
+        localStorage.removeItem(this.tokenKey);
+        localStorage.removeItem(this.rememberKey);
+      }
+    } else {
+      this.clearToken();
+    }
+  },
+
+  clearToken() {
+    localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.rememberKey);
+    sessionStorage.removeItem(this.tokenKey);
+  },
 
   async request(endpoint, options = {}) {
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, options);
+      const headers = { ...options.headers };
+      const token = this.getToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -19,6 +57,57 @@ const API = {
       console.error(`❌ API Error [${endpoint}]:`, error);
       throw error;
     }
+  },
+
+  // Authentication
+  async register(email, password, username, remember = true) {
+    const res = await this.request("/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, username, remember_me: remember }),
+    });
+    if (res.token) {
+      this.setToken(res.token, remember);
+    }
+    return res;
+  },
+
+  async login(email, password, remember = true) {
+    const res = await this.request("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, remember_me: remember }),
+    });
+    if (res.token) {
+      this.setToken(res.token, remember);
+    }
+    return res;
+  },
+
+  async getMe() {
+    if (!this.getToken()) return null;
+    try {
+      const res = await this.request("/auth/me");
+      return res.user;
+    } catch (err) {
+      this.clearToken();
+      return null;
+    }
+  },
+
+  async logout() {
+    try {
+      await this.request("/auth/logout", { method: "POST" });
+    } catch (err) {
+      // Ignore network errors on logout
+    }
+    this.clearToken();
+  },
+
+  async deleteAccount() {
+    const res = await this.request("/auth/account", { method: "DELETE" });
+    this.clearToken();
+    return res;
   },
 
   // Trips
@@ -154,6 +243,18 @@ const API = {
 
   async deleteMoment(momentId) {
     return await this.request(`/moments/${momentId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async deleteMomentPhoto(momentId) {
+    return await this.request(`/moments/${momentId}/photo`, {
+      method: "DELETE",
+    });
+  },
+
+  async deleteMomentFootnote(momentId) {
+    return await this.request(`/moments/${momentId}/footnote`, {
       method: "DELETE",
     });
   },

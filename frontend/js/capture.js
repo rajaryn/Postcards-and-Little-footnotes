@@ -58,6 +58,19 @@ const CaptureModal = {
       this.clearPhoto();
     });
 
+    // Datetime helper buttons
+    document.getElementById("btn-datetime-now")?.addEventListener("click", () => {
+      if (this.datetimeInput) {
+        this.datetimeInput.value = this.getLiveLocalDateTime();
+      }
+    });
+
+    document.getElementById("btn-datetime-clear")?.addEventListener("click", () => {
+      if (this.datetimeInput) {
+        this.datetimeInput.value = "";
+      }
+    });
+
     // Form submit
     this.form?.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -79,10 +92,6 @@ const CaptureModal = {
   openModal(tripId) {
     this.currentTripId = tripId;
     this.resetForm();
-    // Default date/time to the live current time
-    if (this.datetimeInput) {
-      this.datetimeInput.value = this.getLiveLocalDateTime();
-    }
     this.modal.classList.add("open");
     // Focus caption for quick typing
     setTimeout(() => this.captionInput.focus(), 150);

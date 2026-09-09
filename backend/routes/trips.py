@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 import db
+from services.auth_service import get_current_user
 from services.r2_service import delete_r2_objects
 
 trips_bp = Blueprint("trips", __name__, url_prefix="/api/trips")
@@ -7,27 +8,73 @@ trips_bp = Blueprint("trips", __name__, url_prefix="/api/trips")
 
 @trips_bp.route("", methods=["GET"])
 def get_trips():
-    """List all trips with moment count."""
-    sql = """
-        SELECT 
-            t.id, 
-            t.name, 
-            t.start_date, 
-            t.end_date, 
-            t.created_at,
-            COUNT(m.id) AS moment_count
-        FROM trips t
-        LEFT JOIN moments m ON t.id = m.trip_id
-        GROUP BY t.id
-        ORDER BY t.created_at DESC
-    """
-    trips = db.query_db(sql)
+    """List trips with moment count, scoped to current traveler."""
+    user = get_current_user()
+
+    if user:
+        # For rajaryn28@gmail.com, demo trips (user_id IS NULL) are also available
+        if user.get("email", "").strip().lower() == "rajaryn28@gmail.com":
+            sql = """
+                SELECT 
+                    t.id, 
+                    t.user_id,
+                    t.name, 
+                    t.start_date, 
+                    t.end_date, 
+                    t.created_at,
+                    COUNT(m.id) AS moment_count
+                FROM trips t
+                LEFT JOIN moments m ON t.id = m.trip_id
+                WHERE t.user_id = %s OR t.user_id IS NULL
+                GROUP BY t.id
+                ORDER BY t.created_at DESC
+            """
+            trips = db.query_db(sql, (user["id"],))
+        else:
+            sql = """
+                SELECT 
+                    t.id, 
+                    t.user_id,
+                    t.name, 
+                    t.start_date, 
+                    t.end_date, 
+                    t.created_at,
+                    COUNT(m.id) AS moment_count
+                FROM trips t
+                LEFT JOIN moments m ON t.id = m.trip_id
+                WHERE t.user_id = %s
+                GROUP BY t.id
+                ORDER BY t.created_at DESC
+            """
+            trips = db.query_db(sql, (user["id"],))
+    else:
+        # Unauthenticated guest sees demo trips
+        sql = """
+            SELECT 
+                t.id, 
+                t.user_id,
+                t.name, 
+                t.start_date, 
+                t.end_date, 
+                t.created_at,
+                COUNT(m.id) AS moment_count
+            FROM trips t
+            LEFT JOIN moments m ON t.id = m.trip_id
+            WHERE t.user_id IS NULL
+            GROUP BY t.id
+            ORDER BY t.created_at DESC
+        """
+        trips = db.query_db(sql)
+
     return jsonify({"trips": trips}), 200
 
 
 @trips_bp.route("", methods=["POST"])
 def create_trip():
-    """Create a new trip."""
+    """Create a new trip attached to current traveler."""
+    user = get_current_user()
+    user_id = user["id"] if user else None
+
     data = request.get_json(silent=True) or request.form or {}
     name_raw = data.get("name")
     name = name_raw.strip() if isinstance(name_raw, str) else ""
@@ -38,8 +85,8 @@ def create_trip():
         return jsonify({"error": "Trip name is required."}), 400
 
     trip_id = db.execute_db(
-        "INSERT INTO trips (name, start_date, end_date) VALUES (%s, %s, %s)",
-        (name, start_date, end_date),
+        "INSERT INTO trips (user_id, name, start_date, end_date) VALUES (%s, %s, %s, %s)",
+        (user_id, name, start_date, end_date),
     )
 
     trip = db.query_db("SELECT * FROM trips WHERE id = %s", (trip_id,), one=True)

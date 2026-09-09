@@ -8,14 +8,16 @@ moments_bp = Blueprint("moments", __name__, url_prefix="/api")
 
 
 def _format_datetime_for_db(dt_str):
-    """Normalize datetime strings like '2026-09-08T14:30' into '2026-09-08 14:30:00'."""
+    """Normalize datetime strings like '2026-09-08T14:30' or '2026-09-08' into '2026-09-08 14:30:00'."""
     if not dt_str:
         return None
     dt_str = str(dt_str).strip()
     if not dt_str:
         return None
     dt_clean = dt_str.replace("T", " ")
-    if len(dt_clean) == 16:  # YYYY-MM-DD HH:MM
+    if len(dt_clean) == 10:  # YYYY-MM-DD
+        dt_clean += " 12:00:00"
+    elif len(dt_clean) == 16:  # YYYY-MM-DD HH:MM
         dt_clean += ":00"
     return dt_clean
 
@@ -139,3 +141,71 @@ def delete_moment(moment_id: int):
     logger.info(f"🗑️ [TiDB Delete] Deleted moment record ID {moment_id} from TiDB.")
 
     return jsonify({"message": "Moment deleted successfully.", "id": moment_id}), 200
+
+
+@moments_bp.route("/moments/<int:moment_id>/photo", methods=["DELETE"])
+def delete_moment_photo(moment_id: int):
+    """Delete only the photo from a moment (keeping the footnote if present, or deleting moment if no caption)."""
+    moment = db.query_db("SELECT id, trip_id, photo_key, caption FROM moments WHERE id = %s", (moment_id,), one=True)
+    if not moment:
+        logger.warning(f"❌ [Photo Delete] Moment ID {moment_id} not found in TiDB.")
+        return jsonify({"error": "Moment not found."}), 404
+
+    if not moment.get("photo_key"):
+        return jsonify({"error": "This moment has no photo attached."}), 400
+
+    # Delete from R2 object store
+    logger.info(f"🗑️ [R2 Delete Photo] Deleting photo from Cloudflare R2: key='{moment['photo_key']}'")
+    delete_r2_object(moment["photo_key"])
+
+    has_caption = bool(moment.get("caption") and str(moment["caption"]).strip())
+    if has_caption:
+        # Update moment to remove photo_key
+        db.execute_db("UPDATE moments SET photo_key = NULL WHERE id = %s", (moment_id,))
+        updated_moment = db.query_db("SELECT * FROM moments WHERE id = %s", (moment_id,), one=True)
+        return jsonify({
+            "message": "Photo deleted from moment.",
+            "moment": updated_moment,
+            "deleted_entire_moment": False,
+        }), 200
+    else:
+        # Moment had only a photo and no caption, delete entire moment record
+        db.execute_db("DELETE FROM moments WHERE id = %s", (moment_id,))
+        return jsonify({
+            "message": "Photo and moment deleted.",
+            "id": moment_id,
+            "deleted_entire_moment": True,
+        }), 200
+
+
+@moments_bp.route("/moments/<int:moment_id>/footnote", methods=["DELETE"])
+def delete_moment_footnote(moment_id: int):
+    """Delete only the footnote / caption from a moment (keeping photo if present, or deleting moment if no photo)."""
+    moment = db.query_db("SELECT id, trip_id, photo_key, caption FROM moments WHERE id = %s", (moment_id,), one=True)
+    if not moment:
+        logger.warning(f"❌ [Footnote Delete] Moment ID {moment_id} not found in TiDB.")
+        return jsonify({"error": "Moment not found."}), 404
+
+    if not moment.get("caption") or not str(moment["caption"]).strip():
+        return jsonify({"error": "This moment has no footnote attached."}), 400
+
+    has_photo = bool(moment.get("photo_key"))
+    if has_photo:
+        # Clear caption on the moment
+        db.execute_db("UPDATE moments SET caption = NULL WHERE id = %s", (moment_id,))
+        updated_moment = db.query_db("SELECT * FROM moments WHERE id = %s", (moment_id,), one=True)
+        if updated_moment:
+            updated_moment["photo_url"] = generate_presigned_download_url(updated_moment.get("photo_key"))
+        return jsonify({
+            "message": "Footnote deleted from postcard.",
+            "moment": updated_moment,
+            "deleted_entire_moment": False,
+        }), 200
+    else:
+        # Text-only footnote moment, delete the whole moment record
+        db.execute_db("DELETE FROM moments WHERE id = %s", (moment_id,))
+        return jsonify({
+            "message": "Footnote deleted.",
+            "id": moment_id,
+            "deleted_entire_moment": True,
+        }), 200

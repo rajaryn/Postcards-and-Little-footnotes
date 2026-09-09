@@ -63,17 +63,43 @@ def init_tidb():
             # Step 3: Create Tables
             print("\n[3/4] Creating tables...")
 
+            # users table
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                username VARCHAR(100) NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
+            print("      - Table `users` created/verified.")
+
             # trips table
             cur.execute("""
             CREATE TABLE IF NOT EXISTS trips (
                 id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                user_id BIGINT NULL,
                 name VARCHAR(255) NOT NULL,
                 start_date DATE NULL,
                 end_date DATE NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
             """)
             print("      - Table `trips` created/verified.")
+
+            # Check for user_id column in trips if existing table
+            cur.execute("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'trips' AND COLUMN_NAME = 'user_id';
+            """, (Config.TIDB_DATABASE,))
+            if not cur.fetchone():
+                try:
+                    cur.execute("ALTER TABLE trips ADD COLUMN user_id BIGINT NULL;")
+                    print("      - Added column `user_id` to `trips` table.")
+                except Exception as mig_err:
+                    print(f"      - Column migration notice (trips.user_id): {mig_err}")
 
             # moments table
             cur.execute("""

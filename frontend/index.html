@@ -17,8 +17,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   
-  <link rel="stylesheet" href="/css/reset.css?v=2.1" />
-  <link rel="stylesheet" href="/css/styles.css?v=2.1" />
+  <link rel="stylesheet" href="/css/reset.css?v=2.8" />
+  <link rel="stylesheet" href="/css/styles.css?v=2.8" />
 </head>
 <body>
   <div class="app-container">
@@ -26,24 +26,271 @@
     <!-- App Header -->
     <header class="app-header">
       <div id="header-left">
-        <button id="btn-back-to-trips" class="header-back-btn" style="display: none;" aria-label="Back to Collection">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button id="btn-back-to-trips" class="header-back-btn" style="display: none;" aria-label="Back to Trips" title="Back to trips">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
-          <span>collection</span>
         </button>
-        <div id="brand-header-title" class="brand-title title-serif">
+        <a id="brand-header-title" href="#auth" class="brand-title title-serif" aria-label="Postcards &amp; Little Footnotes">
           <span>Postcards &amp; Little Footnotes</span>
+        </a>
+      </div>
+      <div id="header-right">
+
+        <!-- Traveler / Sign In Trigger for Guests -->
+        <a href="#auth" id="btn-header-auth" class="header-auth-btn" style="display: none;" aria-label="Sign In or Create Account" title="Open traveler desk">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span>sign in</span>
+        </a>
+
+        <!-- User Profile Navbar Widget -->
+        <div id="header-user-profile-wrapper" class="header-profile-dropdown-wrapper" style="display: none;">
+          <button type="button" id="btn-header-profile" class="header-profile-btn" aria-expanded="false" aria-label="Traveler Profile">
+            <span id="header-user-avatar" class="user-avatar-circle">R</span>
+            <span id="header-user-name" class="user-name-label">Raj</span>
+            <svg class="icon-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <!-- Dropdown Popover Menu -->
+          <div id="header-profile-menu" class="header-profile-popover" style="display: none;">
+            <div class="popover-profile-card">
+              <div class="popover-stamp-tag">authenticated traveler</div>
+              <div class="popover-user-row">
+                <div id="popover-user-avatar" class="popover-avatar-circle">R</div>
+                <div class="popover-user-meta">
+                  <div id="popover-user-name" class="popover-name title-serif">Raj</div>
+                  <div id="popover-user-email" class="popover-email">rajaryn28@gmail.com</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="popover-menu-divider"></div>
+
+            <div class="popover-menu-footer">
+              <button type="button" id="btn-menu-logout" class="popover-logout-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span>sign out of this device</span>
+              </button>
+              <button type="button" id="btn-menu-delete-account" class="popover-delete-account-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+                <span>delete traveler account</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <div id="header-right"></div>
     </header>
 
+    <!-- VIEW 0: SIGN IN / AUTHENTICATION PAGE (Default Home Page) -->
+    <main id="view-auth" class="view active">
+      <div class="auth-page-container">
+        <!-- If Authenticated: Traveler Passport Card -->
+        <div id="auth-page-authenticated-card" class="auth-paper-card" style="display: none;">
+          <div class="envelope-stamp-mark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <span>authenticated</span>
+          </div>
+
+          <div class="passport-stamp-badge">authenticated traveler</div>
+
+          <div class="passport-profile-row">
+            <div id="auth-page-user-avatar" class="passport-avatar-circle">R</div>
+            <div class="passport-user-meta">
+              <div id="auth-page-user-name" class="passport-name title-serif">Raj</div>
+              <div id="auth-page-user-email" class="passport-email">rajaryn28@gmail.com</div>
+            </div>
+          </div>
+
+          <p class="passport-welcome-note">
+            Your private travel desk is ready with all your postcards and footnotes.
+          </p>
+
+          <div class="passport-actions">
+            <a href="#trips" class="btn-primary passport-go-btn">
+              <span>open your collection &rarr;</span>
+            </a>
+            <button type="button" id="btn-auth-page-logout" class="btn-secondary passport-logout-btn">
+              <span>sign out of this device</span>
+            </button>
+            <button type="button" id="btn-auth-page-delete-account" class="passport-delete-account-btn">
+              <span>delete traveler account</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- If Guest / Unauthenticated: Paper Sign In Form Card -->
+        <div id="auth-page-form-card" class="auth-paper-card auth-paper-envelope">
+          <div class="envelope-stamp-mark">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <span>travel desk</span>
+          </div>
+
+          <div class="auth-card-header">
+            <h2 id="auth-page-title" class="auth-card-title title-serif">open your travel desk</h2>
+            <p id="auth-page-subtitle" class="auth-card-subtitle">Sign in to save and access your personal journey archive.</p>
+          </div>
+
+          <!-- Auth Switcher Tabs -->
+          <div class="auth-tabs-header auth-page-tabs">
+            <button type="button" id="tab-auth-page-login" class="auth-tab-btn active">sign in</button>
+            <button type="button" id="tab-auth-page-register" class="auth-tab-btn">create account</button>
+          </div>
+
+          <div id="auth-page-error-msg" class="auth-error-banner" style="display: none;" role="alert"></div>
+
+          <form id="form-auth-page">
+            <div id="group-auth-page-username" class="form-group" style="display: none;">
+              <label class="form-label" for="input-auth-page-username">what should we call you? <span class="label-optional">(optional)</span></label>
+              <input type="text" id="input-auth-page-username" class="form-input paper-input" placeholder="e.g. Maya, Explorer" autocomplete="nickname" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="input-auth-page-email">email</label>
+              <input type="email" id="input-auth-page-email" class="form-input paper-input" placeholder="you@example.com" required autocomplete="email" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="input-auth-page-password">password</label>
+              <input type="password" id="input-auth-page-password" class="form-input paper-input" placeholder="At least 6 characters" required autocomplete="current-password" minlength="6" />
+            </div>
+
+            <div class="form-options-row">
+              <label class="checkbox-container" for="checkbox-auth-page-remember">
+                <input type="checkbox" id="checkbox-auth-page-remember" checked />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-label-text">remember me on this device</span>
+              </label>
+            </div>
+
+            <div class="form-actions auth-page-form-actions">
+              <button type="submit" id="btn-submit-auth-page" class="btn-primary btn-auth-page-submit">
+                <span>sign in</span>
+              </button>
+            </div>
+
+            <div class="auth-page-guest-wrapper">
+              <a href="#trips" class="btn-text-link">continue as guest &rarr;</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Feature Showcase: Explaining the Two Parts (Postcards & Little Footnotes) -->
+      <section class="home-showcase-section">
+        <div class="showcase-header">
+          <h2 class="showcase-title title-serif">Every trip has two sides</h2>
+          <p class="showcase-subtitle">Snapshots of what you saw, and little notes of what you felt.</p>
+        </div>
+
+        <div class="showcase-carousel-wrapper">
+          <div class="showcase-grid" id="showcase-carousel">
+            
+            <!-- Side A: Postcards -->
+            <div class="showcase-card">
+              <div class="showcase-preview-frame">
+                <div class="sample-postcard-visual">
+                  <div class="css-art-postcard-photo" role="img" aria-label="Sunset mountain ridge with steam from a tea cup">
+                    <div class="css-art-sky">
+                      <div class="css-art-sun"></div>
+                      <div class="css-art-cloud-1"></div>
+                      <div class="css-art-cloud-2"></div>
+                    </div>
+                    <div class="css-art-mountains-back"></div>
+                    <div class="css-art-mountains-mid"></div>
+                    <div class="css-art-ridge-front">
+                      <div class="css-art-pines"></div>
+                      <div class="css-art-tea-cup">
+                        <div class="css-art-steam"></div>
+                      </div>
+                    </div>
+                    <div class="css-art-stamp-overlay">
+                      <span class="sample-photo-tag">visual snapshot</span>
+                    </div>
+                  </div>
+                  <p class="sample-postcard-caption">
+                    &ldquo;Evening tea stall near the ridge, steam rising into cold mountain air.&rdquo;
+                  </p>
+                </div>
+              </div>
+              <div class="showcase-card-body">
+                <h3 class="showcase-card-title title-serif">Postcards</h3>
+                <p class="showcase-card-text">
+                  Capture photographic snapshots with warm handwritten marginalia. Preserved safely so you can revisit your travels anytime.
+                </p>
+              </div>
+            </div>
+
+            <!-- Side B: Little Footnotes -->
+            <div class="showcase-card">
+              <div class="showcase-preview-frame">
+                <div class="sample-footnote-visual">
+                  <div class="sample-footnote-tag font-script">footnote #07</div>
+                  <p class="sample-footnote-text">
+                    &ldquo;The old bookstore smells like dried cedar leaves and rainwater. Found a 1984 map of the valley.&rdquo;
+                  </p>
+                  <div class="sample-footnote-time">04:15 PM &middot; Old Town</div>
+                </div>
+              </div>
+              <div class="showcase-card-body">
+                <h3 class="showcase-card-title title-serif">Little Footnotes</h3>
+                <p class="showcase-card-text">
+                  Record quick thought slips, overheard conversations, ticket notes, or quiet details that don&rsquo;t need a photo.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Mobile Carousel Indicator Dots -->
+          <div class="showcase-dots-indicator" id="showcase-dots" aria-hidden="true">
+            <button type="button" class="showcase-dot active" data-index="0" aria-label="Slide 1"></button>
+            <button type="button" class="showcase-dot" data-index="1" aria-label="Slide 2"></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Site Footer -->
+      <footer class="site-footer">
+        <div class="site-footer-inner">
+          <div class="footer-left">
+            <span class="footer-tagline">a quiet box for wandering souls</span>
+            <span class="footer-dot" aria-hidden="true">&middot;</span>
+            <button type="button" class="footer-link-btn btn-open-privacy" aria-label="Privacy Policy">privacy policy</button>
+          </div>
+          <div class="footer-right">
+            <button type="button" class="footer-back-to-top btn-back-to-top-global" aria-label="Back to top" title="Back to top">
+              <span>back to top &uarr;</span>
+            </button>
+          </div>
+        </div>
+      </footer>
+    </main>
+
     <!-- VIEW 1: TRIPS COLLECTION -->
-    <main id="view-trips" class="view active">
+    <main id="view-trips" class="view">
       <div class="view-header collection-header">
-        <h1 class="view-heading title-serif">Postcards<br>&amp; Little Footnotes</h1>
+        <h1 class="view-heading title-serif">Your Journeys</h1>
         <p class="view-subheading">A box of memories from trips that happen to be digital.</p>
       </div>
 
@@ -56,12 +303,58 @@
           <span>+ start a new trip</span>
         </button>
       </div>
+
+      <!-- Site Footer -->
+      <footer class="site-footer">
+        <div class="site-footer-inner">
+          <div class="footer-left">
+            <span class="footer-tagline">a quiet box for wandering souls</span>
+            <span class="footer-dot" aria-hidden="true">&middot;</span>
+            <button type="button" class="footer-link-btn btn-open-privacy" aria-label="Privacy Policy">privacy policy</button>
+          </div>
+          <div class="footer-right">
+            <button type="button" class="footer-back-to-top btn-back-to-top-global" aria-label="Back to top" title="Back to top">
+              <span>back to top &uarr;</span>
+            </button>
+          </div>
+        </div>
+      </footer>
     </main>
 
     <!-- VIEW 2: TRIP TIMELINE -->
     <main id="view-timeline" class="view">
       <div class="timeline-header">
-        <h1 id="timeline-trip-name" class="timeline-trip-title title-serif">Trip</h1>
+        <div class="timeline-title-row">
+          <h1 id="timeline-trip-name" class="timeline-trip-title title-serif">Trip</h1>
+          <div class="timeline-actions-group">
+            <div id="timeline-view-switcher" class="timeline-view-switcher">
+              <button id="btn-view-timeline" class="switcher-pill active" title="Vertical Timeline View">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <circle cx="12" cy="7" r="2"></circle>
+                  <circle cx="12" cy="17" r="2"></circle>
+                </svg>
+                <span>timeline</span>
+              </button>
+              <button id="btn-view-spread" class="switcher-pill" title="Desk Spread Overview (Zoom Out)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <span>zoom out</span>
+              </button>
+            </div>
+            <button type="button" id="btn-delete-current-trip" class="timeline-delete-trip-btn" title="Delete this entire trip" aria-label="Delete Trip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>delete trip</span>
+            </button>
+          </div>
+        </div>
         <p id="timeline-trip-dates" class="timeline-trip-dates"></p>
       </div>
 
@@ -141,8 +434,17 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="input-moment-datetime">when did this happen?</label>
+          <div class="datetime-label-row">
+            <label class="form-label" for="input-moment-datetime">
+              when did this happen? <span class="label-optional">(optional)</span>
+            </label>
+            <div class="datetime-quick-tags">
+              <button type="button" id="btn-datetime-now" class="btn-quick-tag" title="Fill with current time">now</button>
+              <button type="button" id="btn-datetime-clear" class="btn-quick-tag" title="Clear date &amp; time">clear</button>
+            </div>
+          </div>
           <input type="datetime-local" id="input-moment-datetime" class="form-input paper-input" />
+          <div class="input-helper-note">Leave empty for live capture, or pick when it took place.</div>
         </div>
 
         <div class="form-actions">
@@ -155,14 +457,129 @@
     </div>
   </div>
 
+  <!-- MODAL: AUTHENTICATION (Sign In / Register) -->
+  <div id="modal-auth" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-content paper-modal auth-modal">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 id="auth-modal-title" class="modal-title title-serif">open your travel desk</h2>
+        <button id="btn-close-auth" class="close-btn" aria-label="Close">&times;</button>
+      </div>
+
+      <!-- Auth Switcher Tabs (Sign In / Create Account) -->
+      <div class="auth-tabs-header">
+        <button type="button" id="tab-auth-login" class="auth-tab-btn active">sign in</button>
+        <button type="button" id="tab-auth-register" class="auth-tab-btn">create account</button>
+      </div>
+
+      <div id="auth-error-msg" class="auth-error-banner" style="display: none;" role="alert"></div>
+
+      <form id="form-auth">
+        <div id="group-auth-username" class="form-group" style="display: none;">
+          <label class="form-label" for="input-auth-username">what should we call you? <span class="label-optional">(optional)</span></label>
+          <input type="text" id="input-auth-username" class="form-input paper-input" placeholder="e.g. Maya, Explorer" autocomplete="nickname" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-auth-email">email</label>
+          <input type="email" id="input-auth-email" class="form-input paper-input" placeholder="you@example.com" required autocomplete="email" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-auth-password">password</label>
+          <input type="password" id="input-auth-password" class="form-input paper-input" placeholder="At least 6 characters" required autocomplete="current-password" minlength="6" />
+        </div>
+
+        <div class="form-options-row">
+          <label class="checkbox-container" for="checkbox-auth-remember">
+            <input type="checkbox" id="checkbox-auth-remember" checked />
+            <span class="checkbox-custom"></span>
+            <span class="checkbox-label-text">remember me on this device</span>
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="btn-cancel-auth" class="btn-secondary">cancel</button>
+          <button type="submit" id="btn-submit-auth" class="btn-primary">
+            <span>sign in</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: PRIVACY POLICY (Paper Document Style) -->
+  <div id="modal-privacy" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title">
+    <div class="modal-content paper-modal privacy-modal">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 id="privacy-modal-title" class="modal-title title-serif">privacy policy</h2>
+        <button id="btn-close-privacy" class="close-btn" aria-label="Close">&times;</button>
+      </div>
+      
+      <div class="privacy-content-body">
+        <div class="privacy-badge-row">
+          <span class="privacy-stamp-badge">private &amp; personal</span>
+          <span class="privacy-updated-date">Last updated: September 2026</span>
+        </div>
+
+        <p class="privacy-lead-text title-serif">
+          Postcards &amp; Little Footnotes is built as a private, quiet space for your journey memories. We respect your peace and your personal data.
+        </p>
+
+        <div class="privacy-section">
+          <h3 class="privacy-section-title">1. Data We Collect</h3>
+          <p>
+            When you create an account, we store your email address, an encrypted password hash, and an optional traveler name. When you use the app, we store your created trips, recorded dates, written footnotes, and uploaded postcard photographs.
+          </p>
+        </div>
+
+        <div class="privacy-section">
+          <h3 class="privacy-section-title">2. How Your Memories are Handled</h3>
+          <p>
+            Your postcards, photos, and notes belong entirely to you. They are used solely to present your personal timeline. We do not sell your data, use your photos for advertising, or track you across external websites.
+          </p>
+        </div>
+
+        <div class="privacy-section">
+          <h3 class="privacy-section-title">3. Photo Storage &amp; Encryption</h3>
+          <p>
+            Photographs are stored securely in dedicated private cloud object storage (Cloudflare R2). All data transmitted between your browser and our servers is protected using HTTPS encryption.
+          </p>
+        </div>
+
+        <div class="privacy-section">
+          <h3 class="privacy-section-title">4. Deletion &amp; Control</h3>
+          <p>
+            You can delete individual moments, photos, or entire trips at any time. When you choose to delete an item, it is permanently removed from the database and storage.
+          </p>
+        </div>
+
+        <div class="privacy-section">
+          <h3 class="privacy-section-title">5. Device Storage &amp; Cookies</h3>
+          <p>
+            We use standard local storage (<code>localStorage</code> / <code>sessionStorage</code>) exclusively to keep your session active on this device if requested. We do not use third-party tracking cookies or ad trackers.
+          </p>
+        </div>
+
+        <div class="privacy-actions">
+          <button type="button" id="btn-dismiss-privacy" class="btn-primary">
+            <span>understood</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <!-- Scripts with cache-busting -->
-  <script src="/js/api.js?v=2.2"></script>
-  <script src="/js/trips.js?v=2.2"></script>
-  <script src="/js/moments.js?v=2.2"></script>
-  <script src="/js/capture.js?v=2.2"></script>
-  <script src="/js/app.js?v=2.2"></script>
+  <script src="/js/api.js?v=2.8"></script>
+  <script src="/js/auth.js?v=2.8"></script>
+  <script src="/js/trips.js?v=2.8"></script>
+  <script src="/js/moments.js?v=2.8"></script>
+  <script src="/js/capture.js?v=2.8"></script>
+  <script src="/js/app.js?v=2.8"></script>
 </body>
 </html>

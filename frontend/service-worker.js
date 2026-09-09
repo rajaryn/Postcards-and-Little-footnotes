@@ -1,10 +1,11 @@
-const CACHE_NAME = "postcards-shell-v3";
+const CACHE_NAME = "postcards-shell-v5";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/css/reset.css",
   "/css/styles.css",
   "/js/api.js",
+  "/js/auth.js",
   "/js/trips.js",
   "/js/moments.js",
   "/js/capture.js",
