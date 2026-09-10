@@ -17,8 +17,32 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   
-  <link rel="stylesheet" href="/css/reset.css?v=2.8" />
-  <link rel="stylesheet" href="/css/styles.css?v=2.8" />
+  <link rel="stylesheet" href="/css/reset.css?v=2.22" />
+  <link rel="stylesheet" href="/css/styles.css?v=2.22" />
+  
+  <script>
+    // Instant pre-route before first paint to eliminate sign-in page flash on refresh
+    (function() {
+      try {
+        var token = localStorage.getItem("postcards_auth_token") || sessionStorage.getItem("postcards_auth_token");
+        var hash = window.location.hash || "";
+        var targetId = "view-auth";
+
+        if (hash.startsWith("#trip/")) {
+          targetId = "view-timeline";
+        } else if (hash === "#trips" || hash === "#collection" || (token && (!hash || hash === "#" || hash === "#auth" || hash === "#home" || hash === "#login" || hash === "#signin"))) {
+          targetId = "view-trips";
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+          var views = document.querySelectorAll(".view");
+          views.forEach(function(v) { v.classList.remove("active"); });
+          var target = document.getElementById(targetId);
+          if (target) target.classList.add("active");
+        }, { once: true });
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app-container">
@@ -97,7 +121,7 @@
     </header>
 
     <!-- VIEW 0: SIGN IN / AUTHENTICATION PAGE (Default Home Page) -->
-    <main id="view-auth" class="view active">
+    <main id="view-auth" class="view">
       <div class="auth-page-container">
         <!-- If Authenticated: Traveler Passport Card -->
         <div id="auth-page-authenticated-card" class="auth-paper-card" style="display: none;">
@@ -290,8 +314,34 @@
     <!-- VIEW 1: TRIPS COLLECTION -->
     <main id="view-trips" class="view">
       <div class="view-header collection-header">
-        <h1 class="view-heading title-serif">Your Journeys</h1>
-        <p class="view-subheading">A box of memories from trips that happen to be digital.</p>
+        <div class="collection-title-row">
+          <div class="collection-heading-group">
+            <h1 class="view-heading title-serif">Your Journeys</h1>
+            <p class="view-subheading">A box of memories from trips that happen to be digital.</p>
+          </div>
+          <div id="trips-view-switcher" class="timeline-view-switcher trips-view-switcher">
+            <button id="btn-view-trips-list" class="switcher-pill active" title="Trip List View">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+              </svg>
+              <span>list</span>
+            </button>
+            <button id="btn-view-trips-spread" class="switcher-pill" title="Desk Spread Overview (Zoom Out)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+              <span>zoom out</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div id="trips-container" class="trips-collection">
@@ -371,13 +421,18 @@
 
   </div>
 
-  <!-- MODAL: CREATE TRIP (Envelope Style) -->
+  <!-- MODAL: CREATE TRIP (Blank Paper Style) -->
   <div id="modal-create-trip" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-content paper-modal">
       <div class="sheet-drag-handle" aria-hidden="true"></div>
       <div class="modal-header">
         <h2 class="modal-title title-serif">new trip</h2>
-        <button id="btn-close-create-trip" class="close-btn" aria-label="Close">&times;</button>
+        <button id="btn-close-create-trip" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
       <form id="form-create-trip">
         <div class="form-group">
@@ -400,57 +455,83 @@
   </div>
 
   <!-- MODAL: CAPTURE MOMENT (Blank Paper Style) -->
-  <div id="modal-capture" class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-content paper-modal">
-      <div class="sheet-drag-handle" aria-hidden="true"></div>
-      <div class="modal-header">
-        <h2 class="modal-title title-serif">capture something</h2>
-        <button id="btn-close-capture" class="close-btn" aria-label="Close">&times;</button>
+  <div id="modal-capture" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="capture-modal-title">
+    <div class="modal-content paper-modal capture-modal-content">
+      <div class="sheet-drag-handle" id="capture-drag-handle" aria-hidden="true"></div>
+      
+      <div class="modal-header capture-modal-header">
+        <h2 id="capture-modal-title" class="modal-title title-serif">capture moment</h2>
+        <button type="button" id="btn-close-capture" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
+
       <form id="form-capture">
         <!-- Hidden file input -->
         <input type="file" id="input-moment-photo" accept="image/*" style="display: none;" />
 
-        <!-- Postcard Photo Picker -->
-        <div id="photo-upload-zone" class="image-upload-zone">
-          <div id="photo-upload-prompt">
-            <svg style="margin: 0 auto 8px auto; color: var(--text-tertiary);" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <circle cx="8.5" cy="8.5" r="1.5"></circle>
-              <polyline points="21 15 16 10 5 21"></polyline>
+        <!-- Minimalist Postcard Photo Picker Zone -->
+        <div id="photo-upload-zone" class="image-upload-zone capture-upload-zone">
+          <div id="photo-upload-prompt" class="photo-upload-prompt-minimal">
+            <svg class="photo-picker-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
             </svg>
-            <div style="font-weight: 500; color: var(--text-primary);">[ add a photograph ]</div>
-            <div style="font-size: 0.82rem; color: var(--text-tertiary); margin-top: 2px;">snap a photo or select from camera roll</div>
+            <span class="upload-prompt-text">add photograph <span class="upload-prompt-opt">(optional)</span></span>
           </div>
-          <div id="photo-preview-wrapper" class="image-preview-wrapper" style="display: none;">
+
+          <div id="photo-preview-wrapper" class="image-preview-wrapper capture-preview-wrapper" style="display: none;">
             <img id="photo-preview-img" class="image-preview-img" alt="Postcard preview" />
-            <button type="button" id="btn-remove-photo" class="remove-photo-btn">remove</button>
+            <button type="button" id="btn-remove-photo" class="preview-ctrl-btn btn-remove" title="Remove photo">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              <span>remove</span>
+            </button>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="input-moment-caption">what happened?</label>
-          <textarea id="input-moment-caption" class="form-textarea paper-textarea footnote-input" placeholder="A sentence, a strange little detail, or something you don't want to forget..." data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false"></textarea>
+        <!-- Footnote Textarea -->
+        <div class="form-group capture-caption-group">
+          <textarea id="input-moment-caption" class="form-textarea paper-textarea footnote-input capture-textarea" placeholder="Write a quiet footnote, story, or detail..." rows="3" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false"></textarea>
         </div>
 
-        <div class="form-group">
-          <div class="datetime-label-row">
-            <label class="form-label" for="input-moment-datetime">
-              when did this happen? <span class="label-optional">(optional)</span>
-            </label>
-            <div class="datetime-quick-tags">
-              <button type="button" id="btn-datetime-now" class="btn-quick-tag" title="Fill with current time">now</button>
-              <button type="button" id="btn-datetime-clear" class="btn-quick-tag" title="Clear date &amp; time">clear</button>
-            </div>
+        <!-- Date & Time Row (Now & Clear buttons below) -->
+        <div class="form-group capture-datetime-group">
+          <label class="form-label" for="input-moment-datetime">when did this happen? <span class="label-optional">(optional)</span></label>
+          <input type="datetime-local" id="input-moment-datetime" class="form-input paper-input datetime-field-full" />
+          <div class="datetime-sub-actions">
+            <button type="button" id="btn-datetime-now" class="btn-datetime-chip" title="Set to current time">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span>now</span>
+            </button>
+            <button type="button" id="btn-datetime-clear" class="btn-datetime-chip" title="Clear date &amp; time">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              <span>clear</span>
+            </button>
           </div>
-          <input type="datetime-local" id="input-moment-datetime" class="form-input paper-input" />
-          <div class="input-helper-note">Leave empty for live capture, or pick when it took place.</div>
         </div>
 
-        <div class="form-actions">
-          <button type="button" id="btn-cancel-capture" class="btn-secondary">cancel</button>
+        <!-- Actions Bar -->
+        <div class="form-actions capture-form-actions">
+          <button type="button" id="btn-cancel-capture" class="btn-secondary">
+            <span>cancel</span>
+          </button>
           <button type="submit" id="btn-submit-capture" class="btn-primary">
-            <span>save to memory</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>save memory</span>
           </button>
         </div>
       </form>
@@ -463,7 +544,12 @@
       <div class="sheet-drag-handle" aria-hidden="true"></div>
       <div class="modal-header">
         <h2 id="auth-modal-title" class="modal-title title-serif">open your travel desk</h2>
-        <button id="btn-close-auth" class="close-btn" aria-label="Close">&times;</button>
+        <button id="btn-close-auth" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
 
       <!-- Auth Switcher Tabs (Sign In / Create Account) -->
@@ -514,7 +600,12 @@
       <div class="sheet-drag-handle" aria-hidden="true"></div>
       <div class="modal-header">
         <h2 id="privacy-modal-title" class="modal-title title-serif">privacy policy</h2>
-        <button id="btn-close-privacy" class="close-btn" aria-label="Close">&times;</button>
+        <button id="btn-close-privacy" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
       
       <div class="privacy-content-body">
@@ -564,9 +655,64 @@
 
         <div class="privacy-actions">
           <button type="button" id="btn-dismiss-privacy" class="btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
             <span>understood</span>
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRM DELETE ACCOUNT (Paper Dialog Style) -->
+  <div id="modal-confirm-delete-account" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-delete-title">
+    <div class="modal-content paper-modal confirm-delete-modal">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header confirm-modal-header">
+        <div class="confirm-header-title-group">
+          <svg class="confirm-title-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <h2 id="modal-confirm-delete-title" class="modal-title title-serif text-danger">delete traveler account</h2>
+        </div>
+        <button type="button" id="btn-close-confirm-delete" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="confirm-modal-body">
+        <div class="confirm-warning-box">
+          <svg class="confirm-warning-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span class="confirm-warning-text">This action is permanent and cannot be undone.</span>
+        </div>
+        <p class="confirm-dialog-description">
+          Are you sure you want to delete your traveler account? All your recorded trips, postcards, photographs, and quiet footnotes will be permanently removed from the archive.
+        </p>
+      </div>
+      <div class="form-actions confirm-modal-actions">
+        <button type="button" id="btn-cancel-delete-account" class="btn-secondary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>keep my account</span>
+        </button>
+        <button type="button" id="btn-confirm-delete-account" class="btn-danger-action">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          <span>yes, delete everything</span>
+        </button>
       </div>
     </div>
   </div>
@@ -575,11 +721,11 @@
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <!-- Scripts with cache-busting -->
-  <script src="/js/api.js?v=2.8"></script>
-  <script src="/js/auth.js?v=2.8"></script>
-  <script src="/js/trips.js?v=2.8"></script>
-  <script src="/js/moments.js?v=2.8"></script>
-  <script src="/js/capture.js?v=2.8"></script>
-  <script src="/js/app.js?v=2.8"></script>
+  <script src="/js/api.js?v=2.22"></script>
+  <script src="/js/auth.js?v=2.22"></script>
+  <script src="/js/trips.js?v=2.22"></script>
+  <script src="/js/moments.js?v=2.22"></script>
+  <script src="/js/capture.js?v=2.22"></script>
+  <script src="/js/app.js?v=2.22"></script>
 </body>
 </html>

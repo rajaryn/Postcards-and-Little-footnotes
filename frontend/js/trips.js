@@ -5,9 +5,19 @@ const TripsView = {
   container: document.getElementById("trips-container"),
   modal: document.getElementById("modal-create-trip"),
   form: document.getElementById("form-create-trip"),
+  trips: [],
+  isSpreadMode: false,
 
   init() {
+    // Check saved view preference
+    try {
+      this.isSpreadMode = localStorage.getItem("trips_view_mode") === "spread";
+    } catch (e) {
+      this.isSpreadMode = false;
+    }
+
     this.bindEvents();
+    this.updateSwitcherUI();
   },
 
   bindEvents() {
@@ -35,23 +45,65 @@ const TripsView = {
       e.preventDefault();
       await this.handleCreateTrip();
     });
+
+    // Trips view switcher (list vs zoom out)
+    document.getElementById("btn-view-trips-list")?.addEventListener("click", () => {
+      this.setSpreadMode(false);
+    });
+
+    document.getElementById("btn-view-trips-spread")?.addEventListener("click", () => {
+      this.setSpreadMode(true);
+    });
+  },
+
+  setSpreadMode(active) {
+    this.isSpreadMode = !!active;
+
+    try {
+      localStorage.setItem("trips_view_mode", this.isSpreadMode ? "spread" : "list");
+    } catch (e) {}
+
+    this.updateSwitcherUI();
+
+    const appContainer = document.querySelector(".app-container");
+    if (appContainer && App.currentView === "trips") {
+      appContainer.classList.toggle("spread-active", this.isSpreadMode);
+    }
+
+    this.renderCurrentView();
+  },
+
+  updateSwitcherUI() {
+    const pillList = document.getElementById("btn-view-trips-list");
+    const pillSpread = document.getElementById("btn-view-trips-spread");
+    if (pillList && pillSpread) {
+      pillList.classList.toggle("active", !this.isSpreadMode);
+      pillSpread.classList.toggle("active", this.isSpreadMode);
+    }
+
+    if (this.container) {
+      this.container.classList.toggle("spread-mode", this.isSpreadMode);
+    }
   },
 
   openModal() {
     this.form.reset();
+    App.lockScroll();
     this.modal.classList.add("open");
     document.getElementById("input-trip-name")?.focus();
   },
 
   closeModal() {
     this.modal.classList.remove("open");
+    App.unlockScroll();
   },
 
   async loadTrips() {
     try {
       this.container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">Loading your trips...</div>`;
       const trips = await API.getTrips();
-      this.renderTrips(trips);
+      this.trips = trips || [];
+      this.renderCurrentView();
     } catch (err) {
       this.container.innerHTML = `
         <div class="empty-state">
@@ -63,8 +115,8 @@ const TripsView = {
     }
   },
 
-  renderTrips(trips) {
-    if (!trips || trips.length === 0) {
+  renderCurrentView() {
+    if (!this.trips || this.trips.length === 0) {
       this.container.innerHTML = `
         <div class="empty-collection">
           <h2 class="empty-title title-serif">Nothing here yet.</h2>
@@ -77,6 +129,14 @@ const TripsView = {
       return;
     }
 
+    if (this.isSpreadMode) {
+      this.renderSpread(this.trips);
+    } else {
+      this.renderList(this.trips);
+    }
+  },
+
+  renderList(trips) {
     this.container.innerHTML = trips
       .map((trip, index) => {
         const dateStr = this.formatTripDates(trip.start_date, trip.end_date, trip.created_at);
@@ -111,6 +171,63 @@ const TripsView = {
 
     // Add click listeners to entries
     this.container.querySelectorAll(".trip-entry").forEach((card) => {
+      card.addEventListener("click", () => {
+        const tripId = card.getAttribute("data-trip-id");
+        App.navigateToTimeline(tripId);
+      });
+    });
+  },
+
+  renderSpread(trips) {
+    let html = `
+      <div class="spread-overview-banner">
+        <div class="spread-overview-count">
+          <span class="spread-count-number">${trips.length}</span> ${trips.length === 1 ? "journey" : "journeys"} on the travel desk
+        </div>
+        <div class="spread-overview-hint">
+          <svg class="spread-hint-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="11" y1="8" x2="11" y2="14"></line>
+            <line x1="8" y1="11" x2="14" y2="11"></line>
+          </svg>
+          <span>tap any journey to open</span>
+        </div>
+      </div>
+
+      <div class="trips-spread-grid">
+    `;
+
+    trips.forEach((trip) => {
+      const momentCount = trip.moment_count || 0;
+      const momentLabel = momentCount === 1 ? "1 memory" : `${momentCount} memories`;
+      const tripInitial = (trip.name || "T").trim().charAt(0).toUpperCase();
+      const hasCover = !!(trip.cover_photo_url || trip.photo_url);
+      const coverUrl = trip.cover_photo_url || trip.photo_url;
+
+      html += `
+        <div class="trip-spread-card" data-trip-id="${trip.id}" title="Open ${this.escapeHtml(trip.name)}">
+          <div class="trip-spread-thumb-wrapper">
+            ${
+              hasCover
+                ? `<img class="trip-spread-img" src="${this.escapeHtml(coverUrl)}" alt="${this.escapeHtml(trip.name)}" loading="lazy" />`
+                : `<div class="trip-spread-monogram-tile font-script">${tripInitial}</div>`
+            }
+            <span class="trip-spread-count-badge">${momentLabel}</span>
+          </div>
+          <div class="trip-spread-body">
+            <h3 class="trip-spread-title title-serif">${this.escapeHtml(trip.name)}</h3>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+
+    this.container.innerHTML = html;
+
+    // Add click listeners to spread cards
+    this.container.querySelectorAll(".trip-spread-card").forEach((card) => {
       card.addEventListener("click", () => {
         const tripId = card.getAttribute("data-trip-id");
         App.navigateToTimeline(tripId);

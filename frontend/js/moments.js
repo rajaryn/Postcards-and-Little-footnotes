@@ -139,14 +139,17 @@ const MomentsView = {
     let html = "";
     dayGroups.forEach((group, index) => {
       const dayWord = numberWords[index] || String(index + 1);
-      const formattedDate = group.dateLabel.toUpperCase();
+      const dateLabel = group.dateLabel;
 
       html += `
         <section class="day-chapter">
           <div class="day-chapter-header">
             <div class="day-chapter-divider" aria-hidden="true"></div>
-            <div class="day-chapter-title title-serif">DAY ${dayWord}</div>
-            <div class="day-chapter-date">${formattedDate}</div>
+            <div class="day-chapter-heading-row">
+              <span class="day-chapter-title">DAY ${dayWord}</span>
+              <span class="day-chapter-dot" aria-hidden="true">&middot;</span>
+              <span class="day-chapter-date">${this.escapeHtml(dateLabel)}</span>
+            </div>
             <div class="day-chapter-divider" aria-hidden="true"></div>
           </div>
           <div class="timeline-compositions">

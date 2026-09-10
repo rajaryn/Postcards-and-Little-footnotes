@@ -68,6 +68,18 @@ def create_app(test_config=None):
         except Exception as e:
             app.logger.error(f"Error during database initialization: {e}")
 
+    # Health check / cron keep-alive endpoint for Render & scheduled pingers
+    @app.route("/api/health", methods=["GET", "HEAD"])
+    @app.route("/api/ping", methods=["GET", "HEAD"])
+    @app.route("/health", methods=["GET", "HEAD"])
+    @app.route("/ping", methods=["GET", "HEAD"])
+    def health_check():
+        return jsonify({
+            "status": "ok",
+            "message": "Server is awake and healthy",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }), 200
+
     # Serve uploaded images for local fallback mode
     @app.route("/uploads/<path:filename>")
     def serve_upload(filename):

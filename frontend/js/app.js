@@ -13,19 +13,20 @@ const App = {
     CaptureModal.init();
     AuthModal.init();
 
-    // Check user auth session
-    await this.checkAuth();
-
     // Setup navigation / popstate
     this.setupRouting();
     this.setupHeader();
     this.setupPrivacyModal();
+    this.setupBackdropTouchLock();
     this.setupShowcaseCarousel();
 
     // Register Service Worker for PWA
     this.registerServiceWorker();
 
-    // Initial route handling
+    // Verify session once on startup
+    await this.checkAuth();
+
+    // Route once to target view
     this.handleRoute();
   },
 
@@ -101,11 +102,6 @@ const App = {
       return;
     }
 
-    if (hash === "#auth" || hash === "#login" || hash === "#signin" || hash === "#home") {
-      this.showAuthView();
-      return;
-    }
-
     if (hash === "#privacy" || hash === "#privacy-policy") {
       if (this.currentUser) {
         this.showTripsView();
@@ -116,8 +112,22 @@ const App = {
       return;
     }
 
-    // Default home page is the Sign In / Landing View
-    this.showAuthView();
+    if (hash === "#auth" || hash === "#login" || hash === "#signin") {
+      if (this.currentUser) {
+        this.showTripsView();
+      } else {
+        this.showAuthView();
+      }
+      return;
+    }
+
+    // Default route (empty, #, #home):
+    // If authenticated traveler, show their trips; otherwise show auth/landing page
+    if (this.currentUser) {
+      this.showTripsView();
+    } else {
+      this.showAuthView();
+    }
   },
 
   setupHeader() {
@@ -264,6 +274,48 @@ const App = {
     });
   },
 
+  lockScroll() {
+    document.documentElement.classList.add("modal-open");
+    document.body.classList.add("modal-open");
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+  },
+
+  unlockScroll() {
+    const openModals = document.querySelectorAll(".modal-overlay.open");
+    if (openModals.length === 0) {
+      document.documentElement.classList.remove("modal-open");
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    }
+  },
+
+  setupBackdropTouchLock() {
+    // Prevent backdrop touchmove & wheel events from leaking to background window on mobile and desktop
+    document.querySelectorAll(".modal-overlay").forEach((overlay) => {
+      overlay.addEventListener(
+        "touchmove",
+        (e) => {
+          if (e.target === overlay) {
+            e.preventDefault();
+          }
+        },
+        { passive: false }
+      );
+
+      overlay.addEventListener(
+        "wheel",
+        (e) => {
+          if (e.target === overlay) {
+            e.preventDefault();
+          }
+        },
+        { passive: false }
+      );
+    });
+  },
+
   setupPrivacyModal() {
     const modal = document.getElementById("modal-privacy");
     const closeBtn = document.getElementById("btn-close-privacy");
@@ -271,11 +323,13 @@ const App = {
     const openBtns = document.querySelectorAll(".btn-open-privacy, #btn-open-privacy");
 
     const openModal = () => {
+      this.lockScroll();
       modal?.classList.add("open");
     };
 
     const closeModal = () => {
       modal?.classList.remove("open");
+      this.unlockScroll();
       if (window.location.hash === "#privacy" || window.location.hash === "#privacy-policy") {
         if (this.currentUser) {
           this.navigateToTrips();
@@ -360,7 +414,13 @@ const App = {
     document.getElementById("view-trips")?.classList.add("active");
     document.getElementById("view-auth")?.classList.remove("active");
     document.getElementById("view-timeline")?.classList.remove("active");
-    document.querySelector(".app-container")?.classList.remove("spread-active");
+    
+    // Set container spread width based on TripsView mode
+    const appContainer = document.querySelector(".app-container");
+    if (appContainer) {
+      appContainer.classList.toggle("spread-active", !!TripsView.isSpreadMode);
+    }
+    TripsView.updateSwitcherUI?.();
 
     // Header updates
     const backBtn = document.getElementById("btn-back-to-trips");
@@ -379,6 +439,12 @@ const App = {
     document.getElementById("view-timeline")?.classList.add("active");
     document.getElementById("view-trips")?.classList.remove("active");
     document.getElementById("view-auth")?.classList.remove("active");
+
+    // Set container spread width based on MomentsView mode
+    const appContainer = document.querySelector(".app-container");
+    if (appContainer) {
+      appContainer.classList.toggle("spread-active", !!MomentsView.isSpreadMode);
+    }
 
     // Header updates: Show back button on timeline
     const backBtn = document.getElementById("btn-back-to-trips");

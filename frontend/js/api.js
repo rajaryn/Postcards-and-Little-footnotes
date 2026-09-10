@@ -6,6 +6,23 @@ const API = {
   tokenKey: "postcards_auth_token",
   rememberKey: "postcards_remember_device",
 
+  getBaseUrl() {
+    // If opened via local dev static server (e.g. Live Server on port 5500, 3000, 8080)
+    // or file:// protocol, automatically route API requests to the Flask backend on port 5000
+    if (typeof window !== "undefined" && window.location) {
+      const port = window.location.port;
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      if (
+        protocol === "file:" ||
+        (port && port !== "5000" && (hostname === "localhost" || hostname === "127.0.0.1" || hostname.startsWith("192.168.") || hostname.startsWith("10.")))
+      ) {
+        return `http://${hostname || "127.0.0.1"}:5000/api`;
+      }
+    }
+    return this.baseUrl || "/api";
+  },
+
   getToken() {
     return localStorage.getItem(this.tokenKey) || sessionStorage.getItem(this.tokenKey) || "";
   },
@@ -33,6 +50,7 @@ const API = {
   },
 
   async request(endpoint, options = {}) {
+    const baseUrl = this.getBaseUrl();
     try {
       const headers = { ...options.headers };
       const token = this.getToken();
@@ -40,7 +58,7 @@ const API = {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(`${baseUrl}${endpoint}`, {
         ...options,
         headers,
       });
@@ -49,12 +67,17 @@ const API = {
 
       if (!response.ok) {
         const errorMsg = data.error || `Request failed with status ${response.status}`;
-        throw new Error(errorMsg);
+        const error = new Error(errorMsg);
+        error.status = response.status;
+        throw error;
       }
 
       return data;
     } catch (error) {
-      console.error(`❌ API Error [${endpoint}]:`, error);
+      // Avoid noisy console errors for standard session check probes
+      if (endpoint !== "/auth/me" || (error.status && error.status !== 401 && error.status !== 403)) {
+        console.error(`❌ API Error [${endpoint}]:`, error);
+      }
       throw error;
     }
   },
@@ -84,13 +107,27 @@ const API = {
     return res;
   },
 
-  async getMe() {
-    if (!this.getToken()) return null;
+  async getMe(retry = true) {
+    const token = this.getToken();
+    if (!token) return null;
     try {
       const res = await this.request("/auth/me");
       return res.user;
     } catch (err) {
-      this.clearToken();
+      if (err.status === 401 || err.status === 403) {
+        console.warn("🔒 Auth token invalid or expired. Clearing stored session.");
+        this.clearToken();
+        return null;
+      }
+
+      // If transient network error / server cold start, retry once before failing
+      if (retry && (!err.status || err.name === "TypeError")) {
+        console.log("🔄 Retrying auth verification in 400ms...");
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        return this.getMe(false);
+      }
+
+      console.warn("⚠️ Could not verify auth session:", err.message || err);
       return null;
     }
   },
@@ -181,8 +218,16 @@ const API = {
     formData.append("trip_id", tripId);
     formData.append("file", file);
 
-    const res = await fetch(`${this.baseUrl}/uploads/direct`, {
+    const baseUrl = this.getBaseUrl();
+    const headers = {};
+    const token = this.getToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${baseUrl}/uploads/direct`, {
       method: "POST",
+      headers,
       body: formData,
     });
 

@@ -1,14 +1,14 @@
 from flask import Blueprint, jsonify, request
 import db
 from services.auth_service import get_current_user
-from services.r2_service import delete_r2_objects
+from services.r2_service import delete_r2_objects, generate_presigned_download_url
 
 trips_bp = Blueprint("trips", __name__, url_prefix="/api/trips")
 
 
 @trips_bp.route("", methods=["GET"])
 def get_trips():
-    """List trips with moment count, scoped to current traveler."""
+    """List trips with moment count and cover photo, scoped to current traveler."""
     user = get_current_user()
 
     if user:
@@ -22,7 +22,14 @@ def get_trips():
                     t.start_date, 
                     t.end_date, 
                     t.created_at,
-                    COUNT(m.id) AS moment_count
+                    COUNT(m.id) AS moment_count,
+                    (
+                        SELECT m2.photo_key 
+                        FROM moments m2 
+                        WHERE m2.trip_id = t.id AND m2.photo_key IS NOT NULL AND m2.photo_key != ''
+                        ORDER BY m2.created_at DESC 
+                        LIMIT 1
+                    ) AS cover_photo_key
                 FROM trips t
                 LEFT JOIN moments m ON t.id = m.trip_id
                 WHERE t.user_id = %s OR t.user_id IS NULL
@@ -39,7 +46,14 @@ def get_trips():
                     t.start_date, 
                     t.end_date, 
                     t.created_at,
-                    COUNT(m.id) AS moment_count
+                    COUNT(m.id) AS moment_count,
+                    (
+                        SELECT m2.photo_key 
+                        FROM moments m2 
+                        WHERE m2.trip_id = t.id AND m2.photo_key IS NOT NULL AND m2.photo_key != ''
+                        ORDER BY m2.created_at DESC 
+                        LIMIT 1
+                    ) AS cover_photo_key
                 FROM trips t
                 LEFT JOIN moments m ON t.id = m.trip_id
                 WHERE t.user_id = %s
@@ -57,7 +71,14 @@ def get_trips():
                 t.start_date, 
                 t.end_date, 
                 t.created_at,
-                COUNT(m.id) AS moment_count
+                COUNT(m.id) AS moment_count,
+                (
+                    SELECT m2.photo_key 
+                    FROM moments m2 
+                    WHERE m2.trip_id = t.id AND m2.photo_key IS NOT NULL AND m2.photo_key != ''
+                    ORDER BY m2.created_at DESC 
+                    LIMIT 1
+                ) AS cover_photo_key
             FROM trips t
             LEFT JOIN moments m ON t.id = m.trip_id
             WHERE t.user_id IS NULL
@@ -65,6 +86,12 @@ def get_trips():
             ORDER BY t.created_at DESC
         """
         trips = db.query_db(sql)
+
+    for trip in trips:
+        if trip.get("cover_photo_key"):
+            trip["cover_photo_url"] = generate_presigned_download_url(trip["cover_photo_key"])
+        else:
+            trip["cover_photo_url"] = None
 
     return jsonify({"trips": trips}), 200
 

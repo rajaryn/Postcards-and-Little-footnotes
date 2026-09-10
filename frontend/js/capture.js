@@ -1,5 +1,6 @@
 /**
  * Fast Capture Modal Module with Direct R2 Upload & Custom Date/Time
+ * Minimalist & Mobile-Optimized with Swipe-to-Dismiss
  */
 const CaptureModal = {
   modal: document.getElementById("modal-capture"),
@@ -19,6 +20,7 @@ const CaptureModal = {
 
   init() {
     this.bindEvents();
+    this.bindSwipeToDismiss();
   },
 
   bindEvents() {
@@ -39,14 +41,18 @@ const CaptureModal = {
 
     // Image Upload Zone click
     this.uploadZone?.addEventListener("click", (e) => {
-      if (e.target !== this.removePhotoBtn && !this.selectedFile) {
-        this.photoInput.click();
+      if (
+        e.target !== this.removePhotoBtn &&
+        !this.removePhotoBtn?.contains(e.target) &&
+        !this.selectedFile
+      ) {
+        this.photoInput?.click();
       }
     });
 
-    // Photo input change
+    // Photo input change (triggers native mobile picker: camera / library)
     this.photoInput?.addEventListener("change", (e) => {
-      const file = e.target.files[0];
+      const file = e.target.files?.[0];
       if (file) {
         this.handlePhotoSelected(file);
       }
@@ -58,7 +64,12 @@ const CaptureModal = {
       this.clearPhoto();
     });
 
-    // Datetime helper buttons
+    // Auto-expanding footnote caption textarea
+    this.captionInput?.addEventListener("input", () => {
+      this.autoResizeCaption();
+    });
+
+    // Datetime helper buttons (now & clear)
     document.getElementById("btn-datetime-now")?.addEventListener("click", () => {
       if (this.datetimeInput) {
         this.datetimeInput.value = this.getLiveLocalDateTime();
@@ -78,6 +89,63 @@ const CaptureModal = {
     });
   },
 
+  bindSwipeToDismiss() {
+    const content = this.modal?.querySelector(".modal-content");
+    const handle = document.getElementById("capture-drag-handle");
+    const header = this.modal?.querySelector(".modal-header");
+    if (!content) return;
+
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
+
+    const onTouchStart = (e) => {
+      if (content.scrollTop <= 0) {
+        startY = e.touches[0].clientY;
+        currentY = startY;
+        isDragging = true;
+        content.style.transition = "none";
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (!isDragging) return;
+      currentY = e.touches[0].clientY;
+      const deltaY = currentY - startY;
+      if (deltaY > 0) {
+        content.style.transform = `translateY(${deltaY}px)`;
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      content.style.transition = "transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)";
+      const deltaY = currentY - startY;
+      if (deltaY > 75) {
+        this.closeModal();
+      } else {
+        content.style.transform = "";
+      }
+    };
+
+    handle?.addEventListener("touchstart", onTouchStart, { passive: true });
+    handle?.addEventListener("touchmove", onTouchMove, { passive: false });
+    handle?.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    header?.addEventListener("touchstart", onTouchStart, { passive: true });
+    header?.addEventListener("touchmove", onTouchMove, { passive: false });
+    header?.addEventListener("touchend", onTouchEnd, { passive: true });
+  },
+
+  autoResizeCaption() {
+    if (!this.captionInput) return;
+    this.captionInput.style.height = "auto";
+    const newHeight = Math.min(Math.max(this.captionInput.scrollHeight, 84), 160);
+    this.captionInput.style.height = newHeight + "px";
+  },
+
   getLiveLocalDateTime() {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
@@ -92,19 +160,30 @@ const CaptureModal = {
   openModal(tripId) {
     this.currentTripId = tripId;
     this.resetForm();
+    App.lockScroll();
     this.modal.classList.add("open");
-    // Focus caption for quick typing
-    setTimeout(() => this.captionInput.focus(), 150);
+    
+    // Only autofocus on non-touch desktop to prevent sudden virtual keyboard popups on mobile
+    if (window.matchMedia("(pointer: fine)").matches) {
+      setTimeout(() => this.captionInput?.focus(), 150);
+    }
   },
 
   closeModal() {
+    const content = this.modal?.querySelector(".modal-content");
+    if (content) {
+      content.style.transform = "";
+      content.style.transition = "";
+    }
     this.modal.classList.remove("open");
+    App.unlockScroll();
     this.resetForm();
   },
 
   handlePhotoSelected(file) {
     this.selectedFile = file;
     console.log(`📸 [Capture UI] Photo selected: "${file.name}" (${(file.size / 1024).toFixed(1)} KB, type: ${file.type})`);
+
     const reader = new FileReader();
     reader.onload = (e) => {
       this.previewImg.src = e.target.result;
@@ -118,9 +197,9 @@ const CaptureModal = {
   clearPhoto() {
     console.log("🗑️ [Capture UI] Selected photo cleared.");
     this.selectedFile = null;
-    this.photoInput.value = "";
-    this.previewImg.src = "";
-    this.uploadPrompt.style.display = "block";
+    if (this.photoInput) this.photoInput.value = "";
+    if (this.previewImg) this.previewImg.src = "";
+    this.uploadPrompt.style.display = "inline-flex";
     this.previewWrapper.style.display = "none";
     this.uploadZone.classList.remove("has-preview");
   },
@@ -131,13 +210,21 @@ const CaptureModal = {
     if (this.datetimeInput) {
       this.datetimeInput.value = this.getLiveLocalDateTime();
     }
+    if (this.captionInput) {
+      this.captionInput.style.height = "84px";
+    }
     this.setSubmitting(false);
   },
 
-  setSubmitting(isSubmitting, label = "save to memory") {
+  setSubmitting(isSubmitting, label = "save memory") {
     if (this.submitBtn) {
       this.submitBtn.disabled = isSubmitting;
-      this.submitBtn.innerHTML = `<span>${label}</span>`;
+      const span = this.submitBtn.querySelector("span");
+      if (span) {
+        span.textContent = label;
+      } else {
+        this.submitBtn.innerHTML = `<span>${label}</span>`;
+      }
     }
   },
 

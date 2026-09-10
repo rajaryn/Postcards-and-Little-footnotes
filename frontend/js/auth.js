@@ -75,6 +75,32 @@ const AuthModal = {
     document.getElementById("btn-auth-page-delete-account")?.addEventListener("click", () => {
       this.deleteAccount();
     });
+
+    // 8. In-App Confirm Delete Modal Events
+    document.getElementById("btn-close-confirm-delete")?.addEventListener("click", () => {
+      this.closeConfirmDeleteModal();
+    });
+
+    document.getElementById("btn-cancel-delete-account")?.addEventListener("click", () => {
+      this.closeConfirmDeleteModal();
+    });
+
+    document.getElementById("btn-confirm-delete-account")?.addEventListener("click", async () => {
+      await this.executeDeleteAccount();
+    });
+
+    document.getElementById("modal-confirm-delete-account")?.addEventListener("click", (e) => {
+      if (e.target === document.getElementById("modal-confirm-delete-account")) {
+        this.closeConfirmDeleteModal();
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && document.getElementById("modal-confirm-delete-account")?.classList.contains("open")) {
+        this.closeConfirmDeleteModal();
+      }
+    });
   },
 
   setModalMode(mode) {
@@ -146,12 +172,14 @@ const AuthModal = {
     this.form?.reset();
     this.clearError();
     this.setModalMode(defaultMode);
+    App.lockScroll();
     this.modal?.classList.add("open");
     setTimeout(() => this.emailInput?.focus(), 150);
   },
 
   closeModal() {
     this.modal?.classList.remove("open");
+    App.unlockScroll();
     this.form?.reset();
     this.clearError();
   },
@@ -302,21 +330,59 @@ const AuthModal = {
     App.navigateToAuth();
   },
 
-  async deleteAccount() {
-    const confirmed = confirm("Are you sure you want to permanently delete your traveler account?\n\nAll your trips, postcards, and footnotes will be permanently deleted. This action cannot be undone.");
-    if (!confirmed) return;
+  openConfirmDeleteModal() {
+    // Hide header profile popover if open
+    const profileMenu = document.getElementById("header-profile-menu");
+    if (profileMenu) profileMenu.style.display = "none";
+    document.getElementById("btn-header-profile")?.setAttribute("aria-expanded", "false");
+
+    App.lockScroll();
+    const modal = document.getElementById("modal-confirm-delete-account");
+    modal?.classList.add("open");
+  },
+
+  closeConfirmDeleteModal() {
+    const modal = document.getElementById("modal-confirm-delete-account");
+    modal?.classList.remove("open");
+    App.unlockScroll();
+  },
+
+  deleteAccount() {
+    // Open custom in-app confirmation modal
+    this.openConfirmDeleteModal();
+  },
+
+  async executeDeleteAccount() {
+    const confirmBtn = document.getElementById("btn-confirm-delete-account");
+    const span = confirmBtn?.querySelector("span");
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      if (span) {
+        span.textContent = "deleting...";
+      } else {
+        confirmBtn.innerHTML = "<span>deleting...</span>";
+      }
+    }
 
     try {
       await API.deleteAccount();
+      this.closeConfirmDeleteModal();
       App.currentUser = null;
       App.updateUserHeader();
       this.setPageMode("login");
       this.pageForm?.reset();
       this.clearPageError();
-      App.showToast("Your account has been deleted.");
+      App.showToast("Your traveler account has been permanently deleted.");
       App.navigateToAuth();
     } catch (err) {
       App.showToast(err.message || "Failed to delete account.", "error");
+    } finally {
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        if (span) {
+          span.textContent = "yes, delete everything";
+        }
+      }
     }
   },
 };
