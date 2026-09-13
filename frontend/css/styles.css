@@ -1667,6 +1667,32 @@ body.modal-open {
   transform: scale(0.99);
 }
 
+.image-upload-zone.drag-over {
+  border-color: var(--accent-terracotta) !important;
+  background-color: var(--accent-subtle) !important;
+  transform: scale(1.01);
+}
+
+.photo-converting-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-footnote);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--accent-terracotta);
+}
+
+.photo-converting-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--border-medium);
+  border-top-color: var(--accent-terracotta);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
 .photo-upload-prompt-minimal {
   display: inline-flex;
   align-items: center;
@@ -3191,7 +3217,7 @@ body.modal-open {
   }
 
   .modal-content.paper-modal {
-    padding: 12px 16px calc(20px + var(--sab)) 16px;
+    padding: 12px 16px calc(20px + var(--sat)) 16px;
   }
 
   .fab-capture {
@@ -3210,4 +3236,729 @@ body.modal-open {
     padding: 10px 12px;
     margin-bottom: 16px;
   }
+
+  .people-modal-body {
+    padding: 4px 6px 12px 6px;
+    gap: 14px;
+  }
+
+  .people-card {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .people-done-btn {
+    height: 34px;
+    min-height: 34px;
+    padding: 0 18px;
+    font-size: 0.82rem;
+  }
 }
+
+/* ==========================================================================
+   Shared Trips: People Modal, Invitations, & Quiet Typographic Attribution
+   ========================================================================== */
+
+/* Timeline Header Buttons for People & Leave */
+.timeline-people-btn,
+.timeline-leave-trip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-paper);
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.timeline-people-btn:hover {
+  border-color: var(--accent-terracotta);
+  color: var(--accent-terracotta);
+  background-color: var(--bg-input-focus);
+}
+
+.timeline-leave-trip-btn {
+  color: var(--text-tertiary);
+}
+
+.timeline-leave-trip-btn:hover {
+  border-color: var(--danger-color, #c2410c);
+  color: var(--danger-color, #c2410c);
+}
+
+/* Trips List & Spread: Shared Summary */
+.trip-shared-with {
+  font-family: var(--font-footnote);
+  font-size: 1.05rem;
+  color: var(--accent-terracotta);
+  margin-top: 3px;
+  margin-bottom: 2px;
+  line-height: 1.2;
+}
+
+.trip-spread-shared {
+  display: block;
+  font-family: var(--font-footnote);
+  font-size: 0.98rem;
+  color: var(--accent-terracotta);
+  margin-top: 2px;
+}
+
+/* Photo Author Row & Tag */
+.photo-author-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 6px 0 6px;
+}
+
+.photo-author-tag {
+  font-family: var(--font-footnote);
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+}
+
+.spread-author {
+  font-family: var(--font-footnote);
+  font-size: 0.95rem;
+  color: var(--accent-terracotta);
+}
+
+/* People Modal Container */
+.people-modal-content {
+  max-width: 520px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.people-modal-body {
+  overflow-y: auto;
+  padding: 6px 12px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-medium) transparent;
+  box-sizing: border-box;
+}
+
+.people-modal-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.people-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.people-modal-body::-webkit-scrollbar-thumb {
+  background-color: var(--border-medium);
+  border-radius: 4px;
+}
+
+.people-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.people-done-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 22px;
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-full);
+  background-color: var(--accent-terracotta);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  width: auto;
+  box-shadow: 0 2px 8px var(--accent-glow);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.people-done-btn:hover {
+  background-color: var(--accent-terracotta-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.people-done-btn:active {
+  transform: scale(0.97);
+}
+
+.people-loading {
+  text-align: center;
+  color: var(--text-tertiary);
+  padding: 30px 0;
+  font-size: 0.9rem;
+}
+
+.people-intro-note {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.people-section-subtitle {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+/* Travelers List */
+.people-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.people-card {
+  background-color: var(--bg-paper-subtle, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.people-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.people-avatar-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: var(--bg-paper);
+  border: 1px solid var(--border-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.people-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.people-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.people-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.people-self-badge {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
+.people-role-tag {
+  font-family: var(--font-footnote);
+  font-size: 0.95rem;
+  color: var(--accent-terracotta);
+}
+
+.people-email {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.people-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.people-remove-btn:hover {
+  color: var(--danger-color, #c2410c);
+  background-color: rgba(194, 65, 12, 0.08);
+}
+
+/* Permissions Checkboxes */
+.people-permissions-box {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.permissions-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.permissions-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.permission-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.permission-item input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.permission-checkbox-custom {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-medium);
+  border-radius: 3px;
+  background-color: var(--bg-paper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.permission-item input[type="checkbox"]:checked ~ .permission-checkbox-custom {
+  background-color: var(--accent-terracotta);
+  border-color: var(--accent-terracotta);
+}
+
+.permission-item input[type="checkbox"]:checked ~ .permission-checkbox-custom::after {
+  content: "";
+  display: block;
+  width: 3px;
+  height: 6px;
+  border: solid #ffffff;
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+  margin-top: -1px;
+}
+
+/* Invite Section */
+.people-invite-section {
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.search-spinner {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--accent-terracotta);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+.search-results-list {
+  background-color: var(--bg-paper);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  max-height: 160px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.search-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 10px;
+}
+
+.search-result-row:last-child {
+  border-bottom: none;
+}
+
+.search-result-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.search-avatar-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 0.8rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.search-user-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.search-user-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.search-user-email {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-send-invite {
+  padding: 5px 12px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+}
+
+.search-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.invite-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 4px 0;
+}
+
+.invite-divider::before,
+.invite-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.invite-divider-text {
+  padding: 0 10px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.invite-link-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invite-link-description {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.invite-active-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.invite-link-input {
+  flex: 1;
+  font-size: 0.8rem !important;
+  padding: 8px 12px !important;
+  background-color: var(--bg-paper) !important;
+  border-radius: var(--radius-full) !important;
+}
+
+.btn-copy-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: var(--radius-full);
+  min-height: 34px;
+}
+
+.invite-link-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+  color: var(--text-tertiary);
+}
+
+.invite-revoke-link-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 0.74rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.invite-revoke-link-btn:hover {
+  color: var(--danger-color, #c2410c);
+}
+
+.btn-create-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  min-height: 36px;
+}
+
+/* Pending Direct Invites List */
+.pending-invites-block {
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pending-invites-title {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.pending-invites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pending-invite-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background-color: var(--bg-paper);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.pending-invite-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pending-invite-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pending-invite-tag {
+  font-size: 0.88rem;
+  color: var(--text-tertiary);
+}
+
+.pending-revoke-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 0.74rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pending-revoke-btn:hover {
+  color: var(--danger-color, #c2410c);
+}
+
+/* Member View in People Modal */
+.people-member-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.member-rights-note {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.rights-stamp {
+  display: inline-block;
+  font-family: var(--font-footnote);
+  font-size: 0.95rem;
+  color: var(--accent-terracotta);
+  margin-bottom: 2px;
+}
+
+.btn-leave-trip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background-color: transparent;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-full);
+  color: var(--danger-color, #c2410c);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 36px;
+}
+
+.btn-leave-trip-trigger:hover {
+  background-color: rgba(194, 65, 12, 0.08);
+  border-color: var(--danger-color, #c2410c);
+}
+
+/* Invitation Preview Modal */
+.invitation-modal-content {
+  max-width: 460px;
+}
+
+.invitation-card-paper {
+  padding: 10px 4px 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+}
+
+.invitation-stamp-tag {
+  font-size: 1.15rem;
+  color: var(--accent-terracotta);
+}
+
+.invitation-trip-title {
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.invitation-trip-dates {
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+}
+
+.invitation-message {
+  font-size: 0.94rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+
+.invitation-description {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.invitation-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.invitation-btn-accept,
+.invitation-btn-signin {
+  width: 100%;
+}
+
+.invitation-btn-decline {
+  width: 100%;
+}
+
+.btn-confirm-leave {
+  background-color: var(--danger-color, #c2410c) !important;
+}
+

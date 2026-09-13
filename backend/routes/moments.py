@@ -1,6 +1,7 @@
 import logging
 from flask import Blueprint, jsonify, request
 import db
+from services.auth_service import get_current_user
 from services.r2_service import generate_presigned_download_url, delete_r2_object
 
 logger = logging.getLogger(__name__)
@@ -22,10 +23,44 @@ def _format_datetime_for_db(dt_str):
     return dt_clean
 
 
+def _check_moment_permission(trip_id: int, user: dict, action: str):
+    """Check if user has permission for action ('add', 'delete') on a trip's moments."""
+    if not user:
+        # Unauthenticated guest on demo trip
+        return True, None
+
+    trip = db.query_db("SELECT id, user_id FROM trips WHERE id = %s", (trip_id,), one=True)
+    if not trip:
+        return False, ("Trip not found.", 404)
+
+    # Trip creator has all permissions
+    if trip.get("user_id") == user["id"] or trip.get("user_id") is None:
+        return True, None
+
+    # Check trip_members
+    membership = db.query_db(
+        "SELECT * FROM trip_members WHERE trip_id = %s AND user_id = %s",
+        (trip_id, user["id"]),
+        one=True,
+    )
+    if not membership:
+        return False, ("You do not have access to this trip.", 403)
+
+    if action == "add" and not membership.get("can_add_moments", True):
+        return False, ("You do not have permission to add moments to this trip.", 403)
+    if action == "delete" and not membership.get("can_delete_moments", True):
+        return False, ("You do not have permission to delete moments from this trip.", 403)
+
+    return True, None
+
+
 @moments_bp.route("/trips/<int:trip_id>/moments", methods=["GET"])
 def get_trip_moments(trip_id: int):
-    """List moments for a specific trip in chronological order with presigned photo URLs."""
-    trip = db.query_db("SELECT id, name FROM trips WHERE id = %s", (trip_id,), one=True)
+    """List moments for a specific trip in chronological order with presigned photo URLs and author attribution."""
+    user = get_current_user()
+    current_uid = user["id"] if user else None
+
+    trip = db.query_db("SELECT id, name, user_id FROM trips WHERE id = %s", (trip_id,), one=True)
     if not trip:
         logger.warning(f"❌ [Moments] Trip ID {trip_id} not found.")
         return jsonify({"error": "Trip not found."}), 404
@@ -33,26 +68,41 @@ def get_trip_moments(trip_id: int):
     moments = db.query_db(
         """
         SELECT 
-            id, 
-            trip_id, 
-            caption, 
-            photo_key, 
-            created_at, 
-            latitude, 
-            longitude
-        FROM moments 
-        WHERE trip_id = %s 
-        ORDER BY created_at ASC, id ASC
+            m.id, 
+            m.trip_id, 
+            m.user_id,
+            m.author_name,
+            m.caption, 
+            m.photo_key, 
+            m.created_at, 
+            m.latitude, 
+            m.longitude,
+            u.username AS current_username,
+            u.email AS current_user_email
+        FROM moments m
+        LEFT JOIN users u ON m.user_id = u.id
+        WHERE m.trip_id = %s 
+        ORDER BY m.created_at ASC, m.id ASC
         """,
         (trip_id,),
-    )
+    ) or []
 
-    # Attach short-lived presigned GET URLs for photos
+    # Attach presigned download URLs and resolved author attribution
     for m in moments:
         if m.get("photo_key"):
             m["photo_url"] = generate_presigned_download_url(m["photo_key"])
         else:
             m["photo_url"] = None
+
+        # Resolve author name: snapshot in author_name, fallback to username or email prefix
+        if not m.get("author_name"):
+            if m.get("current_username"):
+                m["author_name"] = m["current_username"]
+            elif m.get("current_user_email"):
+                m["author_name"] = m["current_user_email"].split("@")[0]
+
+        # Flag if current viewer is the author
+        m["is_own_moment"] = bool(current_uid and m.get("user_id") == current_uid)
 
     logger.info(f"📖 [Moments] Retrieved {len(moments)} moments for trip_id={trip_id} ('{trip['name']}')")
     return jsonify({"moments": moments}), 200
@@ -60,11 +110,11 @@ def get_trip_moments(trip_id: int):
 
 @moments_bp.route("/trips/<int:trip_id>/moments", methods=["POST"])
 def create_moment(trip_id: int):
-    """Create a moment for a trip with optional photo_key, caption, and custom/live date & time."""
-    trip = db.query_db("SELECT id, name FROM trips WHERE id = %s", (trip_id,), one=True)
-    if not trip:
-        logger.warning(f"❌ [Moment Step 4] Cannot create moment: Trip ID {trip_id} not found in TiDB.")
-        return jsonify({"error": "Trip not found."}), 404
+    """Create a moment for a trip with optional photo_key, caption, custom date, and automatic author attribution."""
+    user = get_current_user()
+    allowed, err = _check_moment_permission(trip_id, user, "add")
+    if not allowed:
+        return jsonify({"error": err[0]}), err[1]
 
     data = request.get_json(silent=True) or request.form or {}
     caption_raw = data.get("caption")
@@ -84,15 +134,21 @@ def create_moment(trip_id: int):
 
     latitude = data.get("latitude") or None
     longitude = data.get("longitude") or None
+    user_id = user["id"] if user else None
+    author_name = None
+    if user:
+        author_name = user.get("username") or user.get("email", "").split("@")[0]
 
     if created_at:
         moment_id = db.execute_db(
             """
-            INSERT INTO moments (trip_id, caption, photo_key, latitude, longitude, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO moments (trip_id, user_id, author_name, caption, photo_key, latitude, longitude, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 trip_id,
+                user_id,
+                author_name,
                 caption if caption else None,
                 photo_key if photo_key else None,
                 latitude,
@@ -103,11 +159,13 @@ def create_moment(trip_id: int):
     else:
         moment_id = db.execute_db(
             """
-            INSERT INTO moments (trip_id, caption, photo_key, latitude, longitude)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO moments (trip_id, user_id, author_name, caption, photo_key, latitude, longitude)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 trip_id,
+                user_id,
+                author_name,
                 caption if caption else None,
                 photo_key if photo_key else None,
                 latitude,
@@ -118,6 +176,7 @@ def create_moment(trip_id: int):
     moment = db.query_db("SELECT * FROM moments WHERE id = %s", (moment_id,), one=True)
     if moment:
         moment["photo_url"] = generate_presigned_download_url(moment.get("photo_key"))
+        moment["is_own_moment"] = True
 
     logger.info(f"✅ [Moment Step 4 - TiDB Success] Moment successfully saved in TiDB! moment_id={moment_id}, trip_id={trip_id}, created_at='{moment.get('created_at')}'")
 
@@ -126,11 +185,25 @@ def create_moment(trip_id: int):
 
 @moments_bp.route("/moments/<int:moment_id>", methods=["DELETE"])
 def delete_moment(moment_id: int):
-    """Delete a single moment and its photo from R2."""
-    moment = db.query_db("SELECT id, trip_id, photo_key FROM moments WHERE id = %s", (moment_id,), one=True)
+    """Delete a single moment and its photo from R2 with permission checks."""
+    user = get_current_user()
+    moment = db.query_db("SELECT id, trip_id, user_id, photo_key FROM moments WHERE id = %s", (moment_id,), one=True)
     if not moment:
         logger.warning(f"❌ [Moment Delete] Moment ID {moment_id} not found in TiDB.")
         return jsonify({"error": "Moment not found."}), 404
+
+    # Permission check
+    trip = db.query_db("SELECT id, user_id FROM trips WHERE id = %s", (moment["trip_id"],), one=True)
+    if user and trip:
+        is_creator = trip.get("user_id") == user["id"] or trip.get("user_id") is None
+        is_author = moment.get("user_id") == user["id"]
+        if not is_creator and not is_author:
+            return jsonify({"error": "You can only delete your own moments."}), 403
+
+        if not is_creator and is_author:
+            allowed, err = _check_moment_permission(moment["trip_id"], user, "delete")
+            if not allowed:
+                return jsonify({"error": err[0]}), err[1]
 
     # Delete from R2 object store if key exists
     if moment.get("photo_key"):
@@ -145,14 +218,28 @@ def delete_moment(moment_id: int):
 
 @moments_bp.route("/moments/<int:moment_id>/photo", methods=["DELETE"])
 def delete_moment_photo(moment_id: int):
-    """Delete only the photo from a moment (keeping the footnote if present, or deleting moment if no caption)."""
-    moment = db.query_db("SELECT id, trip_id, photo_key, caption FROM moments WHERE id = %s", (moment_id,), one=True)
+    """Delete only the photo from a moment with permission checks."""
+    user = get_current_user()
+    moment = db.query_db("SELECT id, trip_id, user_id, photo_key, caption FROM moments WHERE id = %s", (moment_id,), one=True)
     if not moment:
         logger.warning(f"❌ [Photo Delete] Moment ID {moment_id} not found in TiDB.")
         return jsonify({"error": "Moment not found."}), 404
 
     if not moment.get("photo_key"):
         return jsonify({"error": "This moment has no photo attached."}), 400
+
+    # Permission check
+    trip = db.query_db("SELECT id, user_id FROM trips WHERE id = %s", (moment["trip_id"],), one=True)
+    if user and trip:
+        is_creator = trip.get("user_id") == user["id"] or trip.get("user_id") is None
+        is_author = moment.get("user_id") == user["id"]
+        if not is_creator and not is_author:
+            return jsonify({"error": "You can only delete your own moments."}), 403
+
+        if not is_creator and is_author:
+            allowed, err = _check_moment_permission(moment["trip_id"], user, "delete")
+            if not allowed:
+                return jsonify({"error": err[0]}), err[1]
 
     # Delete from R2 object store
     logger.info(f"🗑️ [R2 Delete Photo] Deleting photo from Cloudflare R2: key='{moment['photo_key']}'")
@@ -180,14 +267,28 @@ def delete_moment_photo(moment_id: int):
 
 @moments_bp.route("/moments/<int:moment_id>/footnote", methods=["DELETE"])
 def delete_moment_footnote(moment_id: int):
-    """Delete only the footnote / caption from a moment (keeping photo if present, or deleting moment if no photo)."""
-    moment = db.query_db("SELECT id, trip_id, photo_key, caption FROM moments WHERE id = %s", (moment_id,), one=True)
+    """Delete only the footnote / caption from a moment with permission checks."""
+    user = get_current_user()
+    moment = db.query_db("SELECT id, trip_id, user_id, photo_key, caption FROM moments WHERE id = %s", (moment_id,), one=True)
     if not moment:
         logger.warning(f"❌ [Footnote Delete] Moment ID {moment_id} not found in TiDB.")
         return jsonify({"error": "Moment not found."}), 404
 
     if not moment.get("caption") or not str(moment["caption"]).strip():
         return jsonify({"error": "This moment has no footnote attached."}), 400
+
+    # Permission check
+    trip = db.query_db("SELECT id, user_id FROM trips WHERE id = %s", (moment["trip_id"],), one=True)
+    if user and trip:
+        is_creator = trip.get("user_id") == user["id"] or trip.get("user_id") is None
+        is_author = moment.get("user_id") == user["id"]
+        if not is_creator and not is_author:
+            return jsonify({"error": "You can only delete your own moments."}), 403
+
+        if not is_creator and is_author:
+            allowed, err = _check_moment_permission(moment["trip_id"], user, "delete")
+            if not allowed:
+                return jsonify({"error": err[0]}), err[1]
 
     has_photo = bool(moment.get("photo_key"))
     if has_photo:
@@ -209,3 +310,4 @@ def delete_moment_footnote(moment_id: int):
             "id": moment_id,
             "deleted_entire_moment": True,
         }), 200
+

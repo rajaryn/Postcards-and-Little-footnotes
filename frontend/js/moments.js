@@ -33,6 +33,18 @@ const MomentsView = {
     document.getElementById("btn-delete-current-trip")?.addEventListener("click", () => {
       this.handleDeleteCurrentTrip();
     });
+
+    // People on trip button
+    document.getElementById("btn-open-people")?.addEventListener("click", () => {
+      if (this.currentTripId) {
+        PeopleModal.openModal(this.currentTripId);
+      }
+    });
+
+    // Leave trip button
+    document.getElementById("btn-leave-current-trip")?.addEventListener("click", () => {
+      PeopleModal.openLeaveConfirmModal();
+    });
   },
 
   setSpreadMode(active) {
@@ -108,6 +120,17 @@ const MomentsView = {
     if (this.tripDatesEl) {
       this.tripDatesEl.textContent = TripsView.formatTripDates(trip.start_date, trip.end_date, trip.created_at);
     }
+
+    const isCreator = !trip.user_role || trip.user_role === "creator";
+    const deleteBtn = document.getElementById("btn-delete-current-trip");
+    const leaveBtn = document.getElementById("btn-leave-current-trip");
+    if (deleteBtn) deleteBtn.style.display = isCreator ? "inline-flex" : "none";
+    if (leaveBtn) leaveBtn.style.display = isCreator ? "none" : "inline-flex";
+
+    // Handle FAB capture button visibility based on permissions
+    const fabBtn = document.getElementById("btn-open-capture");
+    const canAdd = isCreator || (trip.permissions ? trip.permissions.can_add_moments !== false : true);
+    if (fabBtn) fabBtn.style.display = canAdd ? "inline-flex" : "none";
   },
 
   renderCurrentView() {
@@ -211,6 +234,7 @@ const MomentsView = {
     const countNumber = String(index + 1).padStart(2, "0");
 
     if (hasPhoto) {
+      const authorNote = m.author_name ? `<span class="spread-author font-script">— ${this.escapeHtml(m.author_name)}</span>` : "";
       return `
         <div class="spread-item spread-item-postcard" onclick="MomentsView.zoomIntoMoment(${m.id})" title="Focus on this postcard">
           <div class="spread-postcard-thumb-wrapper">
@@ -222,11 +246,13 @@ const MomentsView = {
               ${timeStr ? `<span class="spread-time">${timeStr}</span>` : ""}
             </div>
             ${hasCaption ? `<p class="spread-caption-snippet">${this.escapeHtml(m.caption)}</p>` : ""}
+            ${authorNote}
           </div>
         </div>
       `;
     }
 
+    const authorNote = m.author_name ? `— ${this.escapeHtml(m.author_name)}` : "— footnote";
     return `
       <div class="spread-item spread-item-footnote" onclick="MomentsView.zoomIntoMoment(${m.id})" title="Focus on this footnote">
         <div class="spread-footnote-sheet">
@@ -235,7 +261,7 @@ const MomentsView = {
             ${timeStr ? `<span class="spread-time">${timeStr}</span>` : ""}
           </div>
           <p class="spread-footnote-text">${this.escapeHtml(m.caption)}</p>
-          <span class="spread-footnote-tag">— footnote</span>
+          <span class="spread-footnote-tag font-script">${authorNote}</span>
         </div>
       </div>
     `;
@@ -263,14 +289,22 @@ const MomentsView = {
     const hasCaption = !!(m.caption && m.caption.trim());
     const countNumber = String(index + 1).padStart(2, "0");
 
-    const deleteMomentBtn = `
-      <button class="memory-action-btn" title="Delete entire moment" aria-label="Delete entire moment" onclick="MomentsView.handleDeleteMoment(${m.id})">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-      </button>
-    `;
+    const isCreator = !this.currentTrip?.user_role || this.currentTrip?.user_role === "creator";
+    const isOwnMoment = m.is_own_moment !== false;
+    const canDelete = isCreator || (isOwnMoment && (this.currentTrip?.permissions ? this.currentTrip.permissions.can_delete_moments !== false : true));
+
+    const authorTag = m.author_name ? `— ${this.escapeHtml(m.author_name)}` : "— a little footnote";
+
+    const deleteMomentBtn = canDelete
+      ? `
+        <button class="memory-action-btn" title="Delete entire moment" aria-label="Delete entire moment" onclick="MomentsView.handleDeleteMoment(${m.id})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      `
+      : "";
 
     // Composition variations based on position
     const compTypes = ["composition-large", "composition-offset-left", "composition-medium", "composition-offset-right"];
@@ -281,6 +315,26 @@ const MomentsView = {
 
     // CASE 1: Photo + Footnote (Postcard Print with Marginalia)
     if (hasPhoto && hasCaption) {
+      const deletePhotoBtn = canDelete
+        ? `
+          <button type="button" class="photo-delete-action-btn" title="Delete photo from this moment" aria-label="Delete Photo" onclick="event.stopPropagation(); MomentsView.handleDeletePhoto(${m.id})">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>delete photo</span>
+          </button>
+        `
+        : "";
+
+      const deleteFootnoteBtn = canDelete
+        ? `
+          <button type="button" class="footnote-delete-action-btn" title="Delete footnote" aria-label="Delete footnote" onclick="event.stopPropagation(); MomentsView.handleDeleteFootnote(${m.id})">
+            delete footnote
+          </button>
+        `
+        : "";
+
       return `
         <article class="memory-composition ${compClass} with-photo with-footnote" id="moment-${m.id}">
           <div class="memory-time-row">
@@ -291,24 +345,14 @@ const MomentsView = {
 
           <div class="postcard-print-wrapper">
             <img class="postcard-photo" src="${this.escapeHtml(photoUrl)}" alt="Photograph from journey" loading="lazy" />
-            <div class="photo-overlay-actions">
-              <button type="button" class="photo-delete-action-btn" title="Delete photo from this moment" aria-label="Delete Photo" onclick="event.stopPropagation(); MomentsView.handleDeletePhoto(${m.id})">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                <span>delete photo</span>
-              </button>
-            </div>
+            ${deletePhotoBtn ? `<div class="photo-overlay-actions">${deletePhotoBtn}</div>` : ""}
           </div>
 
           <div class="little-footnote-block">
             <p class="footnote-prose">${this.escapeHtml(m.caption)}</p>
             <div class="footnote-footer-row">
-              <span class="footnote-tag">— a little footnote</span>
-              <button type="button" class="footnote-delete-action-btn" title="Delete footnote" aria-label="Delete footnote" onclick="event.stopPropagation(); MomentsView.handleDeleteFootnote(${m.id})">
-                delete footnote
-              </button>
+              <span class="footnote-tag font-script">${authorTag}</span>
+              ${deleteFootnoteBtn}
             </div>
           </div>
 
@@ -319,31 +363,48 @@ const MomentsView = {
 
     // CASE 2: Photo Only (Postcard Print)
     if (hasPhoto && !hasCaption) {
+      const deletePhotoBtn = canDelete
+        ? `
+          <button class="memory-action-btn" title="Delete photo" aria-label="Delete photo" onclick="MomentsView.handleDeletePhoto(${m.id})">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        `
+        : "";
+
+      const authorBadge = m.author_name
+        ? `<div class="photo-author-row"><span class="photo-author-tag font-script">— ${this.escapeHtml(m.author_name)}</span></div>`
+        : "";
+
       return `
         <article class="memory-composition ${compClass} with-photo photo-only" id="moment-${m.id}">
           <div class="memory-time-row">
             ${timeMarkup}
             <span class="memory-index-mark">${countNumber}</span>
-            <button class="memory-action-btn" title="Delete photo" aria-label="Delete photo" onclick="MomentsView.handleDeletePhoto(${m.id})">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
+            ${deletePhotoBtn}
           </div>
 
           <div class="postcard-print-wrapper">
             <img class="postcard-photo" src="${this.escapeHtml(photoUrl)}" alt="Photograph from journey" loading="lazy" />
-            <div class="photo-overlay-actions">
-              <button type="button" class="photo-delete-action-btn" title="Delete photo" aria-label="Delete Photo" onclick="event.stopPropagation(); MomentsView.handleDeletePhoto(${m.id})">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                <span>delete photo</span>
-              </button>
-            </div>
+            ${
+              canDelete
+                ? `
+              <div class="photo-overlay-actions">
+                <button type="button" class="photo-delete-action-btn" title="Delete photo" aria-label="Delete Photo" onclick="event.stopPropagation(); MomentsView.handleDeletePhoto(${m.id})">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>delete photo</span>
+                </button>
+              </div>
+            `
+                : ""
+            }
           </div>
+          ${authorBadge}
 
           ${separatorDot}
         </article>
@@ -351,26 +412,38 @@ const MomentsView = {
     }
 
     // CASE 3: Footnote Only (Intimate piece of writing directly on the desk)
+    const deleteFootnoteBtn = canDelete
+      ? `
+        <button class="memory-action-btn" title="Delete footnote" aria-label="Delete footnote" onclick="MomentsView.handleDeleteFootnote(${m.id})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      `
+      : "";
+
+    const deleteFooterBtn = canDelete
+      ? `
+        <button type="button" class="footnote-delete-action-btn" title="Delete footnote" aria-label="Delete footnote" onclick="event.stopPropagation(); MomentsView.handleDeleteFootnote(${m.id})">
+          delete footnote
+        </button>
+      `
+      : "";
+
     return `
       <article class="memory-composition composition-footnote-only with-footnote text-only" id="moment-${m.id}">
         <div class="memory-time-row">
           ${timeMarkup}
           <span class="memory-index-mark">${countNumber}</span>
-          <button class="memory-action-btn" title="Delete footnote" aria-label="Delete footnote" onclick="MomentsView.handleDeleteFootnote(${m.id})">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
+          ${deleteFootnoteBtn}
         </div>
 
         <div class="loose-footnote-sheet">
           <p class="footnote-prose single-thought">${this.escapeHtml(m.caption)}</p>
           <div class="footnote-footer-row">
-            <span class="footnote-tag">— little footnote</span>
-            <button type="button" class="footnote-delete-action-btn" title="Delete footnote" aria-label="Delete footnote" onclick="event.stopPropagation(); MomentsView.handleDeleteFootnote(${m.id})">
-              delete footnote
-            </button>
+            <span class="footnote-tag font-script">${authorTag}</span>
+            ${deleteFooterBtn}
           </div>
         </div>
 
@@ -438,7 +511,16 @@ const MomentsView = {
   },
 
   async handleDeleteMoment(momentId) {
-    if (!confirm("Delete this moment and all its contents?")) return;
+    const confirmed = await App.confirm({
+      title: "delete moment",
+      message: "Are you sure you want to delete this moment and all its contents?",
+      confirmText: "yes, delete moment",
+      cancelText: "keep moment",
+      isDanger: true,
+      warning: "This moment's photo and footnote will be permanently removed.",
+    });
+
+    if (!confirmed) return;
 
     try {
       await API.deleteMoment(momentId);
@@ -451,7 +533,16 @@ const MomentsView = {
   },
 
   async handleDeletePhoto(momentId) {
-    if (!confirm("Delete this photograph from the trip?")) return;
+    const confirmed = await App.confirm({
+      title: "delete photograph",
+      message: "Are you sure you want to delete this photograph from the trip?",
+      confirmText: "yes, delete photo",
+      cancelText: "keep photo",
+      isDanger: true,
+      warning: "The photo will be removed, but any attached footnote will remain.",
+    });
+
+    if (!confirmed) return;
 
     try {
       await API.deleteMomentPhoto(momentId);
@@ -463,7 +554,16 @@ const MomentsView = {
   },
 
   async handleDeleteFootnote(momentId) {
-    if (!confirm("Delete this footnote?")) return;
+    const confirmed = await App.confirm({
+      title: "delete footnote",
+      message: "Are you sure you want to delete this footnote?",
+      confirmText: "yes, delete footnote",
+      cancelText: "keep footnote",
+      isDanger: true,
+      warning: "The footnote text will be permanently erased.",
+    });
+
+    if (!confirmed) return;
 
     try {
       await API.deleteMomentFootnote(momentId);

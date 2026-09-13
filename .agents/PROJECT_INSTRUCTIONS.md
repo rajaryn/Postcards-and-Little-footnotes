@@ -64,20 +64,24 @@ The current stack is:
 
 ```text
 Frontend:
-HTML
-CSS
-Vanilla JavaScript
+HTML5
+CSS3
+Vanilla JavaScript (ES Modules / Object namespaces)
 
 Backend:
 Python (managed via uv)
 Flask
+Auth: Werkzeug password hashing & itsdangerous URLSafeTimedSerializer signed tokens
 
 Database:
-TiDB
-MySQL-compatible SQL connector
+TiDB Cloud (MySQL-compatible relational database with SSL/TLS encryption)
+PyMySQL connector with automatic reconnection and structured error handling
+
+Image Storage:
+Cloudflare R2 (Private bucket with presigned PUT/GET URLs & direct backend streaming fallback)
 
 Application type:
-PWA
+PWA (Web App Manifest + Service Worker shell cache)
 ```
 
 Do not introduce React, Vue, Angular, Next.js, or another frontend framework unless explicitly requested.
@@ -93,6 +97,7 @@ Do not replace TiDB unless explicitly requested.
 The primary entities are:
 
 ```text
+User
 Trip
 Moment
 ```
@@ -100,21 +105,25 @@ Moment
 Relationship:
 
 ```text
-Trip 1 ─────── N Moments
+User 1 ─────── N Trips 1 ─────── N Moments
 ```
+
+* `users`: Stores account credentials (email, username, password_hash, created_at).
+* `trips`: Belongs optionally or strictly to a user (`user_id` foreign key with `ON DELETE CASCADE`). Unauthenticated/demo trips have `user_id = NULL`.
+* `moments`: Belongs to a trip (`trip_id` foreign key with `ON DELETE CASCADE`).
 
 A moment may contain:
 
 ```text
-photo
-caption
+photo (stored as photo_key)
+caption (footnote text)
 ```
 
 Both are optional individually, but a moment must contain at least one.
 
 Do not create separate database tables for days.
 
-Days are derived from moment timestamps.
+Days are derived from moment timestamps (`created_at`).
 
 Do not create unnecessary tables for:
 
@@ -137,17 +146,34 @@ Keep API endpoints simple and predictable.
 Current structure:
 
 ```text
+Authentication:
+POST   /api/auth/register
+POST   /api/auth/login
+GET    /api/auth/me
+POST   /api/auth/logout
+DELETE /api/auth/account
+
+Trips:
 GET    /api/trips
 POST   /api/trips
 GET    /api/trips/<trip_id>
 DELETE /api/trips/<trip_id>
 
+Moments:
 GET    /api/trips/<trip_id>/moments
 POST   /api/trips/<trip_id>/moments
-
 DELETE /api/moments/<moment_id>
+DELETE /api/moments/<moment_id>/photo
+DELETE /api/moments/<moment_id>/footnote
 
+Uploads & Media:
 POST   /api/uploads/presign
+POST   /api/uploads/direct
+PUT    /api/uploads/local-put
+
+Health & Monitoring:
+GET    /api/health
+GET    /api/ping
 ```
 
 When adding an endpoint:
@@ -155,27 +181,35 @@ When adding an endpoint:
 1. Follow existing naming conventions.
 2. Validate input on the server.
 3. Return JSON consistently.
-4. Use appropriate HTTP status codes.
+4. Use appropriate HTTP status codes (200, 201, 400, 401, 403, 404, 409, 500, 503).
 5. Never expose internal errors or secrets to the client.
 
 ---
 
 # 7. Frontend Rules
 
-Use vanilla JavaScript.
+Use vanilla JavaScript organized into cohesive modules:
 
-Prefer small, understandable modules.
+```text
+frontend/js/
+├── api.js       # Centralized API service with bearer auth token handling
+├── app.js       # App initialization, SPA router (#trips, #trip/<id>, #auth, #privacy), modals, toast notifications
+├── auth.js      # Sign in, registration, session management, account deletion
+├── trips.js     # Trips collection view (List mode & Desk Canvas zoom-out mode), create trip
+├── moments.js   # Chronological day-grouped timeline, granular photo/footnote deletion
+└── capture.js   # Instant capture modal, camera capture, file upload, custom date & time
+```
 
 Avoid:
 
 * Global state unless necessary
-* Giant JavaScript files
+* Giant monolithic JavaScript files
 * Inline JavaScript in HTML
 * Inline CSS in HTML
 * Duplicate API logic
 * Hardcoded backend URLs throughout the application
 
-Centralize API communication where practical.
+Centralize API communication in `api.js`.
 
 ---
 
@@ -189,7 +223,7 @@ When receiving an image request:
 
 1. Validate the file type and size.
 2. Generate the R2 object key server-side.
-3. Generate a short-lived presigned PUT URL.
+3. Generate a short-lived presigned PUT URL (with `/api/uploads/direct` backend streaming fallback).
 4. Upload the image directly from the browser to R2.
 5. Store the R2 object key in TiDB.
 6. Return the created moment or the information needed to display it.
@@ -415,7 +449,7 @@ Check for contradictions between:
 ```text
 architecture.md
 design.md
-instructions.md
+PROJECT_INSTRUCTIONS.md
 ```
 
 ### Step 5
@@ -480,39 +514,34 @@ Do not jump directly into implementation without understanding the existing proj
 
 # 20. Scope Control
 
-The MVP is intentionally small.
+The core product focuses on fast, intimate travel memory capture.
 
-Do not add features simply because they seem technically interesting.
-
-Current MVP:
+Implemented features:
 
 ```text
-Create trip
-View trips
-Open trip
-Capture moment
-Optional photo
-Optional caption
-Chronological timeline
-Delete moment
-PWA installation
-Basic asset caching
+Traveler authentication & registration (email/password with signed token sessions)
+Account management & complete data purge (TiDB + R2)
+Privacy Policy modal & zero-tracking commitment
+Create & manage trips (scoped to user or guest demo)
+List view & Desk Canvas (Zoom Out) spread view for trips
+Instant capture modal (photo, footnote caption, custom date & time)
+Chronological day-grouped timeline
+Granular deletion (delete entire moment, photo-only, or footnote-only)
+PWA installation & service worker shell caching
+Private Cloudflare R2 image storage with presigned and streaming fallback uploads
+TiDB Cloud relational persistence with TLS
+Health check & keep-alive ping endpoints
 ```
 
-Not MVP:
+Out of scope:
 
 ```text
-Authentication
-Social network
-Likes
-Comments
-Public profiles
-Maps
-AI summaries
-Automatic videos
-Advanced editing
-Real-time collaboration
-Advanced cloud image processing
+Social network feeds
+Public likes & comment threads
+Public algorithmic discovery
+Location tracking & map-first navigation
+AI-generated synthetic memory videos
+Real-time collaborative editing
 ```
 
 Future features require explicit product direction.
@@ -534,8 +563,23 @@ The goal is not maximum technical sophistication.
 
 The goal is a small, pleasant product that makes capturing trip memories effortless.
 
+---
+
+## Change Log
 
 ### 2026-09-08
 - Standardized image storage on private Cloudflare R2.
 - Required backend-generated presigned upload/download URLs.
 - Required `photo_key` in TiDB instead of filesystem paths or permanent public image URLs.
+
+### 2026-09-09
+- Implemented traveler authentication (register, login, session tokens, account deletion).
+- Scoped trips to authenticated `user_id` in TiDB schema with cascade deletes.
+- Added transparent Privacy Policy modal and zero-analytics commitment.
+- Added backend streaming upload fallback (`/api/uploads/direct`).
+
+### 2026-09-10
+- Added Desk Canvas (Spread / Zoom Out) view mode for trips page with pan/zoom/reset controls.
+- Added granular deletion controls for individual photos and footnotes in moments.
+- Enhanced modal interactions, scroll locks, and responsive editorial layout.
+

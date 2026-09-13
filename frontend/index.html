@@ -17,8 +17,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   
-  <link rel="stylesheet" href="/css/reset.css?v=2.22" />
-  <link rel="stylesheet" href="/css/styles.css?v=2.22" />
+  <link rel="stylesheet" href="/css/reset.css?v=2.25" />
+  <link rel="stylesheet" href="/css/styles.css?v=2.25" />
   
   <script>
     // Instant pre-route before first paint to eliminate sign-in page flash on refresh
@@ -396,12 +396,29 @@
                 <span>zoom out</span>
               </button>
             </div>
+            <button type="button" id="btn-open-people" class="timeline-people-btn" title="People on this trip" aria-label="People on this trip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              <span id="label-timeline-people">people</span>
+            </button>
             <button type="button" id="btn-delete-current-trip" class="timeline-delete-trip-btn" title="Delete this entire trip" aria-label="Delete Trip">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
               </svg>
               <span>delete trip</span>
+            </button>
+            <button type="button" id="btn-leave-current-trip" class="timeline-leave-trip-btn" style="display: none;" title="Leave this shared trip" aria-label="Leave Trip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>leave trip</span>
             </button>
           </div>
         </div>
@@ -471,7 +488,7 @@
 
       <form id="form-capture">
         <!-- Hidden file input -->
-        <input type="file" id="input-moment-photo" accept="image/*" style="display: none;" />
+        <input type="file" id="input-moment-photo" accept="image/*,.heic,.heif,image/heic,image/heif" style="display: none;" />
 
         <!-- Minimalist Postcard Photo Picker Zone -->
         <div id="photo-upload-zone" class="image-upload-zone capture-upload-zone">
@@ -717,15 +734,141 @@
     </div>
   </div>
 
+  <!-- MODAL: PEOPLE ON THIS TRIP (Shared Trip Management) -->
+  <div id="modal-people" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="people-modal-title">
+    <div class="modal-content paper-modal people-modal-content">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 id="people-modal-title" class="modal-title title-serif">travelers on this journey</h2>
+        <button type="button" id="btn-close-people" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div id="people-modal-body" class="people-modal-body">
+        <!-- Dynamically rendered roster, permissions & invite options -->
+      </div>
+      <div class="people-modal-footer">
+        <button type="button" id="btn-done-people" class="people-done-btn">
+          <span>done</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TRIP INVITATION PREVIEW & ACCEPTANCE -->
+  <div id="modal-invitation" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="invitation-modal-title">
+    <div class="modal-content paper-modal invitation-modal-content">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 id="invitation-modal-title" class="modal-title title-serif">journey invitation</h2>
+        <button type="button" id="btn-close-invitation" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div id="invitation-modal-body" class="invitation-modal-body">
+        <!-- Dynamically rendered preview & accept card -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRM LEAVE TRIP (Paper Dialog Style) -->
+  <div id="modal-confirm-leave-trip" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-leave-title">
+    <div class="modal-content paper-modal confirm-delete-modal">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header confirm-modal-header">
+        <div class="confirm-header-title-group">
+          <svg class="confirm-title-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <h2 id="modal-confirm-leave-title" class="modal-title title-serif">leave this trip</h2>
+        </div>
+        <button type="button" id="btn-close-confirm-leave" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-dialog-description">
+          Are you sure you want to leave this trip? Your memories and notes will stay as part of the collection with your name, but you will no longer see or edit this trip.
+        </p>
+      </div>
+      <div class="form-actions confirm-modal-actions">
+        <button type="button" id="btn-cancel-leave-trip" class="btn-secondary">
+          <span>stay on trip</span>
+        </button>
+        <button type="button" id="btn-confirm-leave-trip" class="btn-primary btn-confirm-leave">
+          <span>yes, leave trip</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: IN-APP CONFIRMATION DIALOG (Paper Dialog Style) -->
+  <div id="modal-app-confirm" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-app-confirm-title">
+    <div class="modal-content paper-modal confirm-delete-modal">
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header confirm-modal-header">
+        <div class="confirm-header-title-group">
+          <div id="modal-app-confirm-icon-danger" class="confirm-title-icon-wrapper">
+            <svg class="confirm-title-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </div>
+          <h2 id="modal-app-confirm-title" class="modal-title title-serif text-danger">confirm action</h2>
+        </div>
+        <button type="button" id="btn-app-confirm-close" class="close-btn" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="confirm-modal-body">
+        <div id="modal-app-confirm-warning" class="confirm-warning-box" style="display: none;">
+          <svg class="confirm-warning-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span id="modal-app-confirm-warning-text" class="confirm-warning-text">This action is permanent and cannot be undone.</span>
+        </div>
+        <p id="modal-app-confirm-desc" class="confirm-dialog-description">
+          Are you sure you want to proceed?
+        </p>
+      </div>
+      <div class="form-actions confirm-modal-actions">
+        <button type="button" id="btn-app-confirm-cancel" class="btn-secondary">
+          <span id="modal-app-confirm-cancel-text">cancel</span>
+        </button>
+        <button type="button" id="btn-app-confirm-accept" class="btn-danger-action">
+          <span id="modal-app-confirm-accept-text">yes, delete</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <!-- Scripts with cache-busting -->
-  <script src="/js/api.js?v=2.22"></script>
-  <script src="/js/auth.js?v=2.22"></script>
-  <script src="/js/trips.js?v=2.22"></script>
-  <script src="/js/moments.js?v=2.22"></script>
-  <script src="/js/capture.js?v=2.22"></script>
-  <script src="/js/app.js?v=2.22"></script>
+  <script src="/js/api.js?v=2.28"></script>
+  <script src="/js/auth.js?v=2.28"></script>
+  <script src="/js/people.js?v=2.28"></script>
+  <script src="/js/invitations.js?v=2.28"></script>
+  <script src="/js/trips.js?v=2.28"></script>
+  <script src="/js/moments.js?v=2.28"></script>
+  <script src="/js/capture.js?v=2.28"></script>
+  <script src="/js/app.js?v=2.28"></script>
 </body>
 </html>

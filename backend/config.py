@@ -73,6 +73,18 @@ class Config:
     R2_BUCKET_NAME = _get_env(["R2_BUCKET_NAME", "Bucket_name", "BUCKET_NAME", "bucket_name"], "trip-moments")
     R2_PRESIGNED_EXPIRATION = int(_get_env(["R2_PRESIGNED_EXPIRATION"], "3600"))
 
+    # SMTP Email Configuration (Supports SMTP_* and MAIL_* variations)
+    SMTP_HOST = _get_env(["SMTP_HOST", "MAIL_SERVER", "SMTP_SERVER", "smtp_host"], "")
+    SMTP_PORT = int(_get_env(["SMTP_PORT", "MAIL_PORT", "smtp_port"], "587"))
+    SMTP_USER = _get_env(["SMTP_USER", "SMTP_USERNAME", "MAIL_USERNAME", "smtp_user"], "")
+    SMTP_PASSWORD = _get_env(["SMTP_PASSWORD", "SMTP_PASS", "MAIL_PASSWORD", "smtp_password"], "")
+    SMTP_FROM_EMAIL = _get_env(["SMTP_FROM_EMAIL", "MAIL_FROM", "SMTP_FROM", "smtp_from_email"], "")
+    SMTP_FROM_NAME = _get_env(["SMTP_FROM_NAME", "MAIL_FROM_NAME", "smtp_from_name"], "Postcards & Little Footnotes")
+    SMTP_USE_TLS = _get_env(["SMTP_USE_TLS", "MAIL_USE_TLS", "smtp_use_tls"], "True").lower() in ("true", "1", "t")
+    SMTP_USE_SSL = _get_env(["SMTP_USE_SSL", "MAIL_USE_SSL", "smtp_use_ssl"], "False").lower() in ("true", "1", "t")
+    SMTP_TIMEOUT = int(_get_env(["SMTP_TIMEOUT", "smtp_timeout"], "10"))
+    APP_BASE_URL = _get_env(["APP_BASE_URL", "BASE_URL", "FRONTEND_URL", "app_base_url"], "http://localhost:5000")
+
     # Local fallback uploads folder (used when R2 is not configured)
     LOCAL_UPLOADS_FOLDER = BASE_DIR / "uploads"
 
@@ -89,6 +101,11 @@ class Config:
         if cls.R2_ACCOUNT_ID:
             return f"https://{cls.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
         return ""
+
+    @classmethod
+    def is_smtp_configured(cls) -> bool:
+        """Returns True if SMTP host is specified."""
+        return bool(cls.SMTP_HOST)
 
 
 # Ensure local fallback upload folder exists

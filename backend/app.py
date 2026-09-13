@@ -19,6 +19,7 @@ from routes.auth import auth_bp
 from routes.trips import trips_bp
 from routes.moments import moments_bp
 from routes.uploads import uploads_bp
+from routes.sharing import sharing_bp
 
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
@@ -60,6 +61,7 @@ def create_app(test_config=None):
     app.register_blueprint(trips_bp)
     app.register_blueprint(moments_bp)
     app.register_blueprint(uploads_bp)
+    app.register_blueprint(sharing_bp)
 
     # Initialize DB tables
     with app.app_context():

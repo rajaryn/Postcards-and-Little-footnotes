@@ -212,7 +212,7 @@ const API = {
   },
 
   async uploadViaBackend(tripId, file) {
-    console.log(`[Upload Step 3 - Fallback] Uploading photo through backend server to R2 (${file.size} bytes)...`);
+    console.log(`📸 [Photo Upload] Uploading photo to Cloudflare R2 (${(file.size / 1024).toFixed(1)} KB)...`);
     const uploadStartMs = Date.now();
     const formData = new FormData();
     formData.append("trip_id", tripId);
@@ -237,36 +237,28 @@ const API = {
     }
 
     const duration = ((Date.now() - uploadStartMs) / 1000).toFixed(2);
-    console.log(`[Upload Step 3 - Fallback] Upload complete via backend server! photo_key = "${data.photo_key}" (took ${duration}s)`);
+    console.log(`✨ [Photo Upload] Upload complete to Cloudflare R2! photo_key = "${data.photo_key}" (${duration}s)`);
     return data.photo_key;
   },
 
   async uploadPhoto(tripId, file) {
-    try {
-      // 1. Request presigned upload URL
-      const presignRes = await this.getPresignedUploadUrl(
-        tripId,
-        file.name,
-        file.type
-      );
+    const contentType = file.type || "image/jpeg";
+    
+    // 1. Request presigned upload URL from backend (metadata only, saves server bandwidth)
+    const presignRes = await this.getPresignedUploadUrl(
+      tripId,
+      file.name,
+      contentType
+    );
 
-      // 2. Attempt direct upload to R2
-      try {
-        await this.uploadDirectToR2(
-          presignRes.upload_url,
-          file,
-          file.type
-        );
-        return presignRes.photo_key;
-      } catch (corsOrNetErr) {
-        console.warn(`⚠️ Direct browser upload failed (e.g. CORS preflight). Automatically using server upload to R2...`, corsOrNetErr);
-        // 3. Transparent fallback to backend server upload to R2
-        return await this.uploadViaBackend(tripId, file);
-      }
-    } catch (err) {
-      console.warn("⚠️ Presign request failed, trying server upload directly:", err);
-      return await this.uploadViaBackend(tripId, file);
-    }
+    // 2. Upload binary payload directly from browser to Cloudflare R2
+    await this.uploadDirectToR2(
+      presignRes.upload_url,
+      file,
+      contentType
+    );
+
+    return presignRes.photo_key;
   },
 
   // Moments
@@ -301,6 +293,78 @@ const API = {
   async deleteMomentFootnote(momentId) {
     return await this.request(`/moments/${momentId}/footnote`, {
       method: "DELETE",
+    });
+  },
+
+  // Sharing & Trip Members
+  async getTripMembers(tripId) {
+    const res = await this.request(`/trips/${tripId}/members`);
+    return res; // { members, user_role, is_creator }
+  },
+
+  async updateMemberPermissions(tripId, userId, permissions) {
+    return await this.request(`/trips/${tripId}/members/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(permissions),
+    });
+  },
+
+  async removeTripMember(tripId, userId) {
+    return await this.request(`/trips/${tripId}/members/${userId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async searchUsers(query, tripId) {
+    const tripParam = tripId ? `&trip_id=${tripId}` : "";
+    const res = await this.request(`/users/search?q=${encodeURIComponent(query)}${tripParam}`);
+    return res.users || [];
+  },
+
+  async getTripInvitations(tripId) {
+    const res = await this.request(`/trips/${tripId}/invitations`);
+    return res.invitations || [];
+  },
+
+  async createInvitation(tripId, data) {
+    return await this.request(`/trips/${tripId}/invitations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  },
+
+  async revokeInvitation(tripId, invitationId) {
+    return await this.request(`/trips/${tripId}/invitations/${invitationId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async previewInvitation(token) {
+    return await this.request(`/invitations/${token}`);
+  },
+
+  async acceptInvitation(token) {
+    return await this.request(`/invitations/${token}/accept`, {
+      method: "POST",
+    });
+  },
+
+  async declineInvitation(token) {
+    return await this.request(`/invitations/${token}/decline`, {
+      method: "POST",
+    });
+  },
+
+  async getPendingInvitations() {
+    const res = await this.request("/invitations/pending");
+    return res.invitations || [];
+  },
+
+  async leaveTrip(tripId) {
+    return await this.request(`/trips/${tripId}/leave`, {
+      method: "POST",
     });
   },
 };

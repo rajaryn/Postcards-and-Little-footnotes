@@ -180,14 +180,38 @@ def init_db(app=None) -> bool:
                 CREATE TABLE IF NOT EXISTS moments (
                     id BIGINT PRIMARY KEY AUTO_INCREMENT,
                     trip_id BIGINT NOT NULL,
+                    user_id BIGINT NULL,
+                    author_name VARCHAR(100) NULL,
                     caption TEXT NULL,
                     photo_key VARCHAR(500) NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     latitude DECIMAL(10, 7) NULL,
                     longitude DECIMAL(10, 7) NULL,
-                    FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+                    FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
                 );
                 """)
+
+                # Check for user_id and author_name columns in moments
+                cur.execute("""
+                    SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'moments' AND COLUMN_NAME = 'user_id';
+                """, (Config.TIDB_DATABASE,))
+                if not cur.fetchone():
+                    try:
+                        cur.execute("ALTER TABLE moments ADD COLUMN user_id BIGINT NULL;")
+                    except Exception:
+                        pass
+
+                cur.execute("""
+                    SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'moments' AND COLUMN_NAME = 'author_name';
+                """, (Config.TIDB_DATABASE,))
+                if not cur.fetchone():
+                    try:
+                        cur.execute("ALTER TABLE moments ADD COLUMN author_name VARCHAR(100) NULL;")
+                    except Exception:
+                        pass
 
                 # Automatic migration if photo_path exists instead of photo_key
                 cur.execute("""
@@ -199,6 +223,40 @@ def init_db(app=None) -> bool:
                         cur.execute("ALTER TABLE moments CHANGE photo_path photo_key VARCHAR(500) NULL;")
                     except Exception:
                         pass
+
+                # trip_members table
+                cur.execute("""
+                CREATE TABLE IF NOT EXISTS trip_members (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    trip_id BIGINT NOT NULL,
+                    user_id BIGINT NOT NULL,
+                    role ENUM('creator', 'member') DEFAULT 'member',
+                    can_add_moments BOOLEAN DEFAULT TRUE,
+                    can_edit_moments BOOLEAN DEFAULT TRUE,
+                    can_delete_moments BOOLEAN DEFAULT TRUE,
+                    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_trip_user (trip_id, user_id),
+                    FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                """)
+
+                # trip_invitations table
+                cur.execute("""
+                CREATE TABLE IF NOT EXISTS trip_invitations (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    trip_id BIGINT NOT NULL,
+                    inviter_id BIGINT NOT NULL,
+                    invitee_id BIGINT NULL,
+                    token VARCHAR(64) NOT NULL UNIQUE,
+                    status ENUM('pending', 'accepted', 'declined', 'revoked') DEFAULT 'pending',
+                    expires_at DATETIME NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+                    FOREIGN KEY (inviter_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (invitee_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                """)
 
                 logger.info("Successfully connected to TiDB and verified schema.")
                 return True

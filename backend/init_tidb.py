@@ -106,15 +106,41 @@ def init_tidb():
             CREATE TABLE IF NOT EXISTS moments (
                 id BIGINT PRIMARY KEY AUTO_INCREMENT,
                 trip_id BIGINT NOT NULL,
+                user_id BIGINT NULL,
+                author_name VARCHAR(100) NULL,
                 caption TEXT NULL,
                 photo_key VARCHAR(500) NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 latitude DECIMAL(10, 7) NULL,
                 longitude DECIMAL(10, 7) NULL,
-                FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+                FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
             );
             """)
             print("      - Table `moments` created/verified.")
+
+            # Check for user_id and author_name columns in moments if existing table
+            cur.execute("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'moments' AND COLUMN_NAME = 'user_id';
+            """, (Config.TIDB_DATABASE,))
+            if not cur.fetchone():
+                try:
+                    cur.execute("ALTER TABLE moments ADD COLUMN user_id BIGINT NULL;")
+                    print("      - Added column `user_id` to `moments` table.")
+                except Exception as mig_err:
+                    print(f"      - Column migration notice (moments.user_id): {mig_err}")
+
+            cur.execute("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'moments' AND COLUMN_NAME = 'author_name';
+            """, (Config.TIDB_DATABASE,))
+            if not cur.fetchone():
+                try:
+                    cur.execute("ALTER TABLE moments ADD COLUMN author_name VARCHAR(100) NULL;")
+                    print("      - Added column `author_name` to `moments` table.")
+                except Exception as mig_err:
+                    print(f"      - Column migration notice (moments.author_name): {mig_err}")
 
             # Check for legacy column migration if applicable
             cur.execute("""
@@ -127,6 +153,42 @@ def init_tidb():
                     print("      - Migrated column `photo_path` -> `photo_key` in `moments` table.")
                 except Exception as mig_err:
                     print(f"      - Column migration notice: {mig_err}")
+
+            # trip_members table
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS trip_members (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                trip_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
+                role ENUM('creator', 'member') DEFAULT 'member',
+                can_add_moments BOOLEAN DEFAULT TRUE,
+                can_edit_moments BOOLEAN DEFAULT TRUE,
+                can_delete_moments BOOLEAN DEFAULT TRUE,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_trip_user (trip_id, user_id),
+                FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            """)
+            print("      - Table `trip_members` created/verified.")
+
+            # trip_invitations table
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS trip_invitations (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                trip_id BIGINT NOT NULL,
+                inviter_id BIGINT NOT NULL,
+                invitee_id BIGINT NULL,
+                token VARCHAR(64) NOT NULL UNIQUE,
+                status ENUM('pending', 'accepted', 'declined', 'revoked') DEFAULT 'pending',
+                expires_at DATETIME NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+                FOREIGN KEY (inviter_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (invitee_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            """)
+            print("      - Table `trip_invitations` created/verified.")
 
             # Step 4: Verification
             print("\n[4/4] Verifying schema...")

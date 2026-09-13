@@ -143,22 +143,30 @@ const TripsView = {
         const momentCount = trip.moment_count || 0;
         const momentLabel = momentCount === 1 ? "1 moment" : `${momentCount} moments`;
         const offsetClass = index % 2 === 1 ? "trip-entry-offset" : "trip-entry-main";
+        const isCreator = !trip.user_role || trip.user_role === "creator";
+        const sharedSummary = trip.is_shared && trip.members_summary ? `<div class="trip-shared-with font-script">with ${this.escapeHtml(trip.members_summary)}</div>` : "";
+        const deleteBtn = isCreator
+          ? `
+            <div class="trip-actions" onclick="event.stopPropagation();">
+              <button class="memory-action-btn" title="Forget this trip" aria-label="Delete Trip" onclick="TripsView.handleDeleteTrip(${trip.id}, '${this.escapeHtml(trip.name)}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          `
+          : "";
 
         return `
-          <div class="trip-entry ${offsetClass}" data-trip-id="${trip.id}">
+          <div class="trip-entry ${offsetClass} ${trip.is_shared ? "is-shared-trip" : ""}" data-trip-id="${trip.id}">
             <div class="trip-entry-content">
               <div class="trip-entry-header">
                 <h3 class="trip-title title-serif">${this.escapeHtml(trip.name)}</h3>
-                <div class="trip-actions" onclick="event.stopPropagation();">
-                  <button class="memory-action-btn" title="Forget this trip" aria-label="Delete Trip" onclick="TripsView.handleDeleteTrip(${trip.id}, '${this.escapeHtml(trip.name)}')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                  </button>
-                </div>
+                ${deleteBtn}
               </div>
               <div class="trip-dates">${dateStr}</div>
+              ${sharedSummary}
               <div class="trip-meta-row">
                 <span class="trip-moment-count">${momentLabel}</span>
                 <span class="trip-arrow">open &rarr;</span>
@@ -204,9 +212,10 @@ const TripsView = {
       const tripInitial = (trip.name || "T").trim().charAt(0).toUpperCase();
       const hasCover = !!(trip.cover_photo_url || trip.photo_url);
       const coverUrl = trip.cover_photo_url || trip.photo_url;
+      const sharedSpreadNote = trip.is_shared && trip.members_summary ? `<span class="trip-spread-shared font-script">with ${this.escapeHtml(trip.members_summary)}</span>` : "";
 
       html += `
-        <div class="trip-spread-card" data-trip-id="${trip.id}" title="Open ${this.escapeHtml(trip.name)}">
+        <div class="trip-spread-card ${trip.is_shared ? "is-shared-trip" : ""}" data-trip-id="${trip.id}" title="Open ${this.escapeHtml(trip.name)}">
           <div class="trip-spread-thumb-wrapper">
             ${
               hasCover
@@ -217,6 +226,7 @@ const TripsView = {
           </div>
           <div class="trip-spread-body">
             <h3 class="trip-spread-title title-serif">${this.escapeHtml(trip.name)}</h3>
+            ${sharedSpreadNote}
           </div>
         </div>
       `;
@@ -263,7 +273,16 @@ const TripsView = {
   },
 
   async handleDeleteTrip(tripId, tripName) {
-    if (!confirm(`Are you sure you want to delete "${tripName}" and all its moments?`)) {
+    const confirmed = await App.confirm({
+      title: "delete trip",
+      message: `Are you sure you want to delete "${tripName}" and all its recorded moments, photographs, and quiet footnotes?`,
+      confirmText: "yes, delete trip",
+      cancelText: "keep trip",
+      isDanger: true,
+      warning: "All moments and photos in this trip will be permanently removed.",
+    });
+
+    if (!confirmed) {
       return;
     }
 

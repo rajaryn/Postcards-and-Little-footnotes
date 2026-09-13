@@ -2128,7 +2128,72 @@ Just a quiet collection of photographs and little footnotes from a life that hap
 
 ---
 
-# 64. Change Log
+# 64. The Entrance & Traveler Identity
+
+Authentication in Postcards & Little Footnotes is designed not as a corporate login gate, but as stepping up to your personal travel desk.
+
+### The Showcase Carousel & Entrance View
+
+* The entrance page features a quiet, rotating editorial carousel highlighting evocative quotes and photographs ("A photograph. A sentence. A strange little observation. A moment that would otherwise disappear.").
+* The sign-in and registration forms use paper-like field styling, quiet typography, and clear validation feedback.
+* Travelers can toggle between "Sign In" and "Create Account" without jarring page reloads.
+
+### Header Traveler Seal & Account Popover
+
+* When signed in, the top-right header displays a modest circular avatar stamp with the traveler's initial.
+* Clicking the avatar opens a quiet parchment popover displaying the traveler's name, email, quick sign-out, and a clear account deletion option.
+* Unauthenticated guests see demo trips and can sign in at any time to start their personal journey collection.
+
+---
+
+# 65. The Privacy Promise
+
+Postcards & Little Footnotes takes a strict, quiet stance on traveler privacy.
+
+### The Privacy Policy Dialog
+
+Accessible from the footer and sign-in page, the privacy policy modal is written in plain, human English:
+
+* **Zero Tracking**: No Google Analytics, no Meta pixels, no tracking cookies, and no third-party scripts.
+* **Private Vault**: All journey photographs reside in private Cloudflare R2 object storage accessible only via short-lived backend-signed URLs.
+* **Complete Sovereignty**: The user owns all their memories. If they choose to delete a moment, a photo, a trip, or their entire account, every corresponding TiDB record and R2 image is purged permanently and immediately.
+
+---
+
+# 66. The Travel Desk Canvas & Zoom Out (Spread Mode)
+
+The Trips view provides two complementary ways to experience your collection:
+
+### 1. The Editorial List View
+A clean, staggered column of trip titles, dates, moment counts, and cover postcard previews.
+
+### 2. The Desk Canvas (Spread / Zoom Out Mode)
+Toggled via the switcher pills in the header (`List` vs `Spread` / `Zoom Out`):
+
+* Reimagines the screen as an infinite travel desk table.
+* Trip cards are laid out organically across a 2D canvas with subtle rotation and natural scatter.
+* **Interactive Canvas Navigation**:
+  * **Zoom In / Zoom Out**: Magnify or step back to see all journeys at once.
+  * **Pan / Drag**: Smoothly pan across the desk surface with mouse or touch.
+  * **Reset View**: Return to default 100% center alignment with a single click.
+* Retains persistent traveler preference in `localStorage`.
+
+---
+
+# 67. Granular Ephemera Curation
+
+Memories are not rigid database blobs; they are composed of physical-feeling artifacts (postcard prints and handwritten footnotes).
+
+The timeline interaction reflects this:
+
+* **Delete Entire Moment**: Removes the whole composition.
+* **Delete Photo Only**: Strips the photograph from Cloudflare R2 and leaves the handwritten footnote intact on the page.
+* **Delete Footnote Only**: Erases the marginalia caption while preserving the postcard print.
+* Subtle hover and touch actions provide these options quietly without cluttering the editorial reading flow.
+
+---
+
+# 68. Change Log
 
 ### 2026-09-07
 
@@ -2160,8 +2225,22 @@ Just a quiet collection of photographs and little footnotes from a life that hap
 * Preserved private Cloudflare R2 image storage.
 * Preserved direct browser uploads and backend-generated short-lived image URLs.
 
+### 2026-09-09
+
+* Designed and implemented the traveler entrance experience (Sign In / Create Account with Showcase Carousel).
+* Added quiet traveler identity header with circular initial seal and account menu popover.
+* Added plain-spoken Privacy Policy modal committed to zero tracking and private storage.
+* Implemented complete data purge flow on account deletion.
+
+### 2026-09-10
+
+* Designed and built the interactive Travel Desk Canvas (Zoom Out / Spread Mode) for viewing trips as an organic tabletop workspace.
+* Added smooth pan, zoom in, zoom out, and reset controls for the desk canvas.
+* Added granular curation controls allowing independent deletion of postcard prints and footnote notes.
+* Refined modal transition animations and touch-lock mechanics for mobile devices.
+
 ---
 
-# 65. One Sentence
+# 69. One Sentence
 
 **Postcards & Little Footnotes is a digital box of things you brought home from a trip.**

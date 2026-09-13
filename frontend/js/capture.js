@@ -20,6 +20,7 @@ const CaptureModal = {
 
   init() {
     this.bindEvents();
+    this.bindDragAndDrop();
     this.bindSwipeToDismiss();
   },
 
@@ -89,6 +90,55 @@ const CaptureModal = {
     });
   },
 
+  bindDragAndDrop() {
+    if (!this.uploadZone) return;
+
+    const highlight = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.uploadZone.classList.add("drag-over");
+    };
+
+    const unhighlight = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.uploadZone.classList.remove("drag-over");
+    };
+
+    ["dragenter", "dragover"].forEach((evt) => {
+      this.uploadZone.addEventListener(evt, highlight, false);
+    });
+
+    ["dragleave", "dragend"].forEach((evt) => {
+      this.uploadZone.addEventListener(evt, unhighlight, false);
+    });
+
+    this.uploadZone.addEventListener("drop", (e) => {
+      unhighlight(e);
+      const file = e.dataTransfer?.files?.[0];
+      if (file) {
+        this.handlePhotoSelected(file);
+      }
+    });
+
+    // Also handle dropping on modal content area
+    const modalContent = this.modal?.querySelector(".modal-content");
+    if (modalContent) {
+      modalContent.addEventListener("dragover", (e) => {
+        e.preventDefault();
+      });
+      modalContent.addEventListener("drop", (e) => {
+        if (!this.uploadZone.contains(e.target)) {
+          e.preventDefault();
+          const file = e.dataTransfer?.files?.[0];
+          if (file) {
+            this.handlePhotoSelected(file);
+          }
+        }
+      });
+    }
+  },
+
   bindSwipeToDismiss() {
     const content = this.modal?.querySelector(".modal-content");
     const handle = document.getElementById("capture-drag-handle");
@@ -139,6 +189,128 @@ const CaptureModal = {
     header?.addEventListener("touchend", onTouchEnd, { passive: true });
   },
 
+  isHeicFile(file) {
+    if (!file) return false;
+    const name = (file.name || "").toLowerCase();
+    const type = (file.type || "").toLowerCase();
+    return (
+      name.endsWith(".heic") ||
+      name.endsWith(".heif") ||
+      type === "image/heic" ||
+      type === "image/heif" ||
+      type === "image/heic-sequence" ||
+      type === "image/heif-sequence"
+    );
+  },
+
+  async loadHeicConverter() {
+    if (typeof window.heic2any === "function") {
+      return window.heic2any;
+    }
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/js/heic2any.min.js";
+      script.onload = () => {
+        if (typeof window.heic2any === "function") {
+          resolve(window.heic2any);
+        } else {
+          reject(new Error("heic2any failed to initialize"));
+        }
+      };
+      script.onerror = () => {
+        // Fallback to CDN
+        const cdnScript = document.createElement("script");
+        cdnScript.src = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+        cdnScript.onload = () => {
+          if (typeof window.heic2any === "function") {
+            resolve(window.heic2any);
+          } else {
+            reject(new Error("CDN heic2any failed"));
+          }
+        };
+        cdnScript.onerror = () => reject(new Error("Could not load HEIC converter"));
+        document.head.appendChild(cdnScript);
+      };
+      document.head.appendChild(script);
+    });
+  },
+
+  showConvertingNotice(msg) {
+    if (!this.uploadPrompt) return;
+    this.uploadPrompt.innerHTML = `
+      <div class="photo-converting-notice">
+        <div class="photo-converting-spinner"></div>
+        <span>${this.escapeHtml(msg || "developing photograph...")}</span>
+      </div>
+    `;
+    this.uploadPrompt.style.display = "inline-flex";
+    if (this.previewWrapper) this.previewWrapper.style.display = "none";
+    if (this.uploadZone) this.uploadZone.classList.remove("has-preview");
+  },
+
+  hideConvertingNotice() {
+    if (!this.uploadPrompt) return;
+    this.uploadPrompt.innerHTML = `
+      <svg class="photo-picker-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
+      <span class="upload-prompt-text">add photograph <span class="upload-prompt-opt">(optional)</span></span>
+    `;
+  },
+
+  escapeHtml(str) {
+    if (!str) return "";
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  },
+
+  async handlePhotoSelected(file) {
+    if (!file) return;
+
+    if (this.isHeicFile(file)) {
+      console.log(`📸 [Capture UI] Developing HEIC photo: "${file.name}" (${(file.size / 1024).toFixed(1)} KB)...`);
+      this.showConvertingNotice("developing photograph...");
+      try {
+        const heic2any = await this.loadHeicConverter();
+        const convertedBlob = await heic2any({
+          blob: file,
+          toType: "image/jpeg",
+          quality: 0.92,
+        });
+        const blobResult = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+        const jpegFileName = file.name.replace(/\.(heic|heif)$/i, ".jpg");
+        const convertedFile = new File([blobResult], jpegFileName, { type: "image/jpeg" });
+        console.log(`✨ [Capture UI] Photograph developed successfully: "${convertedFile.name}" (${(convertedFile.size / 1024).toFixed(1)} KB)`);
+        this.hideConvertingNotice();
+        this.displayPhotoPreview(convertedFile);
+      } catch (err) {
+        console.error("❌ [Capture UI] Could not develop photograph:", err);
+        this.hideConvertingNotice();
+        App.showToast("Could not develop this photograph. Try another picture.", "error");
+        this.clearPhoto();
+      }
+      return;
+    }
+
+    this.displayPhotoPreview(file);
+  },
+
+  displayPhotoPreview(file) {
+    this.selectedFile = file;
+    console.log(`📸 [Capture UI] Photo ready: "${file.name}" (${(file.size / 1024).toFixed(1)} KB, type: ${file.type})`);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (this.previewImg) this.previewImg.src = e.target.result;
+      if (this.uploadPrompt) this.uploadPrompt.style.display = "none";
+      if (this.previewWrapper) this.previewWrapper.style.display = "block";
+      if (this.uploadZone) this.uploadZone.classList.add("has-preview");
+    };
+    reader.readAsDataURL(file);
+  },
+
   autoResizeCaption() {
     if (!this.captionInput) return;
     this.captionInput.style.height = "auto";
@@ -180,28 +352,15 @@ const CaptureModal = {
     this.resetForm();
   },
 
-  handlePhotoSelected(file) {
-    this.selectedFile = file;
-    console.log(`📸 [Capture UI] Photo selected: "${file.name}" (${(file.size / 1024).toFixed(1)} KB, type: ${file.type})`);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      this.previewImg.src = e.target.result;
-      this.uploadPrompt.style.display = "none";
-      this.previewWrapper.style.display = "block";
-      this.uploadZone.classList.add("has-preview");
-    };
-    reader.readAsDataURL(file);
-  },
-
   clearPhoto() {
     console.log("🗑️ [Capture UI] Selected photo cleared.");
     this.selectedFile = null;
     if (this.photoInput) this.photoInput.value = "";
     if (this.previewImg) this.previewImg.src = "";
-    this.uploadPrompt.style.display = "inline-flex";
-    this.previewWrapper.style.display = "none";
-    this.uploadZone.classList.remove("has-preview");
+    this.hideConvertingNotice();
+    if (this.uploadPrompt) this.uploadPrompt.style.display = "inline-flex";
+    if (this.previewWrapper) this.previewWrapper.style.display = "none";
+    if (this.uploadZone) this.uploadZone.classList.remove("has-preview");
   },
 
   resetForm() {

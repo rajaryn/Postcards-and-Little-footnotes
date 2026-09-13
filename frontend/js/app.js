@@ -12,6 +12,8 @@ const App = {
     MomentsView.init();
     CaptureModal.init();
     AuthModal.init();
+    PeopleModal.init();
+    InvitationController.init();
 
     // Setup navigation / popstate
     this.setupRouting();
@@ -34,6 +36,14 @@ const App = {
     try {
       this.currentUser = await API.getMe();
       this.updateUserHeader();
+
+      // Check if user was waiting to accept an invitation
+      const pendingToken = sessionStorage.getItem("pending_invite_token");
+      if (pendingToken && this.currentUser) {
+        setTimeout(() => {
+          InvitationController.openPreview(pendingToken);
+        }, 150);
+      }
     } catch (e) {
       this.currentUser = null;
       this.updateUserHeader();
@@ -88,6 +98,19 @@ const App = {
 
   handleRoute() {
     const hash = window.location.hash;
+
+    if (hash.startsWith("#invite/")) {
+      const token = hash.replace("#invite/", "").trim();
+      if (this.currentUser) {
+        this.showTripsView();
+      } else {
+        this.showAuthView();
+      }
+      if (token) {
+        InvitationController.openPreview(token);
+      }
+      return;
+    }
 
     if (hash.startsWith("#trip/")) {
       const tripId = parseInt(hash.replace("#trip/", ""), 10);
@@ -470,6 +493,112 @@ const App = {
       toast.style.transition = "all 0.2s ease";
       setTimeout(() => toast.remove(), 200);
     }, 2800);
+  },
+
+  confirm(options = {}) {
+    if (typeof options === "string") {
+      options = { message: options };
+    }
+
+    const {
+      title = "confirm action",
+      message = "Are you sure you want to proceed?",
+      confirmText = "yes, delete",
+      cancelText = "cancel",
+      isDanger = true,
+      warning = isDanger ? "This action is permanent and cannot be undone." : "",
+    } = options || {};
+
+    return new Promise((resolve) => {
+      const modal = document.getElementById("modal-app-confirm");
+      if (!modal) {
+        resolve(true);
+        return;
+      }
+
+      const titleEl = document.getElementById("modal-app-confirm-title");
+      const descEl = document.getElementById("modal-app-confirm-desc");
+      const warningBox = document.getElementById("modal-app-confirm-warning");
+      const warningText = document.getElementById("modal-app-confirm-warning-text");
+      const cancelBtn = document.getElementById("btn-app-confirm-cancel");
+      const acceptBtn = document.getElementById("btn-app-confirm-accept");
+      const closeBtn = document.getElementById("btn-app-confirm-close");
+      const cancelTextEl = document.getElementById("modal-app-confirm-cancel-text");
+      const acceptTextEl = document.getElementById("modal-app-confirm-accept-text");
+
+      if (titleEl) {
+        titleEl.textContent = title;
+        titleEl.classList.toggle("text-danger", !!isDanger);
+      }
+
+      if (descEl) {
+        descEl.textContent = message;
+      }
+
+      if (warningBox) {
+        if (warning) {
+          warningBox.style.display = "flex";
+          if (warningText) warningText.textContent = warning;
+        } else {
+          warningBox.style.display = "none";
+        }
+      }
+
+      if (cancelTextEl) cancelTextEl.textContent = cancelText;
+      if (acceptTextEl) acceptTextEl.textContent = confirmText;
+
+      if (acceptBtn) {
+        acceptBtn.className = isDanger ? "btn-danger-action" : "btn-primary";
+      }
+
+      let settled = false;
+
+      const cleanup = (result) => {
+        if (settled) return;
+        settled = true;
+        modal.classList.remove("open");
+        this.unlockScroll();
+        acceptBtn?.removeEventListener("click", onAccept);
+        cancelBtn?.removeEventListener("click", onCancel);
+        closeBtn?.removeEventListener("click", onCancel);
+        modal.removeEventListener("click", onOverlayClick);
+        document.removeEventListener("keydown", onKeyDown);
+        resolve(result);
+      };
+
+      const onAccept = (e) => {
+        e?.preventDefault();
+        cleanup(true);
+      };
+
+      const onCancel = (e) => {
+        e?.preventDefault();
+        cleanup(false);
+      };
+
+      const onOverlayClick = (e) => {
+        if (e.target === modal) {
+          e.preventDefault();
+          cleanup(false);
+        }
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === "Escape" && modal.classList.contains("open")) {
+          e.preventDefault();
+          cleanup(false);
+        }
+      };
+
+      acceptBtn?.addEventListener("click", onAccept);
+      cancelBtn?.addEventListener("click", onCancel);
+      closeBtn?.addEventListener("click", onCancel);
+      modal.addEventListener("click", onOverlayClick);
+      document.addEventListener("keydown", onKeyDown);
+
+      this.lockScroll();
+      modal.classList.add("open");
+    });
   },
 
   registerServiceWorker() {
