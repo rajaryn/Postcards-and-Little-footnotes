@@ -4,20 +4,26 @@ from dotenv import load_dotenv
 
 # Load .env from backend/ or project root
 BASE_DIR = Path(__file__).resolve().parent
+if (BASE_DIR.parent / ".env").exists():
+    load_dotenv(BASE_DIR.parent / ".env", override=True)
 if (BASE_DIR / ".env").exists():
-    load_dotenv(BASE_DIR / ".env")
-elif (BASE_DIR.parent / ".env").exists():
-    load_dotenv(BASE_DIR.parent / ".env")
-else:
-    load_dotenv()
+    load_dotenv(BASE_DIR / ".env", override=True)
+load_dotenv(override=True)
 
 
 def _get_env(keys, default=""):
-    """Helper to get env variable matching any of the candidate keys, stripped of outer quotes."""
+    """Helper to get env variable matching any of the candidate keys (case-insensitive), stripped of outer quotes."""
     for k in keys:
         v = os.getenv(k)
         if v is not None and v != "":
             v_str = str(v).strip().strip("'\"")
+            if v_str:
+                return v_str
+    # Case-insensitive fallback across all os.environ keys
+    lower_keys = {k.lower(): k for k in keys}
+    for env_k, env_v in os.environ.items():
+        if env_k.lower() in lower_keys and env_v is not None and env_v != "":
+            v_str = str(env_v).strip().strip("'\"")
             if v_str:
                 return v_str
     return default
@@ -83,7 +89,7 @@ class Config:
     SMTP_USE_TLS = _get_env(["SMTP_USE_TLS", "MAIL_USE_TLS", "smtp_use_tls"], "True").lower() in ("true", "1", "t")
     SMTP_USE_SSL = _get_env(["SMTP_USE_SSL", "MAIL_USE_SSL", "smtp_use_ssl"], "False").lower() in ("true", "1", "t")
     SMTP_TIMEOUT = int(_get_env(["SMTP_TIMEOUT", "smtp_timeout"], "10"))
-    APP_BASE_URL = _get_env(["APP_BASE_URL", "BASE_URL", "FRONTEND_URL", "app_base_url"], "http://localhost:5000")
+    APP_BASE_URL = _get_env(["app_base_url", "APP_BASE_URL", "BASE_URL", "base_url", "FRONTEND_URL", "frontend_url"], "https://postcards-and-little-footnotes.onrender.com")
 
     # Local fallback uploads folder (used when R2 is not configured)
     LOCAL_UPLOADS_FOLDER = BASE_DIR / "uploads"

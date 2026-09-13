@@ -203,9 +203,9 @@ const PeopleModal = {
     if (isCreator) {
       // Find active share link if any
       const activeLinkInvite = this.invitationsData.find(
-        (inv) => inv.invite_type === "link" && inv.status === "pending"
+        (inv) => (inv.type === "link" || inv.invite_type === "link" || (!inv.invitee_id && !inv.recipient_email)) && inv.status === "pending"
       );
-      const activeLinkUrl = activeLinkInvite ? `${window.location.origin}/#invite/${activeLinkInvite.token}` : "";
+      const activeLinkUrl = activeLinkInvite ? this.getInviteUrl(activeLinkInvite.token) : "";
 
       html += `
         <!-- Invite Travelers Section -->
@@ -310,7 +310,7 @@ const PeopleModal = {
 
   renderPendingInvitations() {
     const directPending = this.invitationsData.filter(
-      (inv) => inv.invite_type === "direct" && inv.status === "pending"
+      (inv) => (inv.type === "direct" || inv.invite_type === "direct" || inv.type === "email" || inv.invite_type === "email" || inv.invitee_id) && inv.status === "pending"
     );
 
     if (directPending.length === 0) return "";
@@ -412,6 +412,7 @@ const PeopleModal = {
         type: "direct",
         invitee_id: userId,
         email: userEmail || null,
+        base_url: this.getBaseAppUrl(),
       });
 
       const emailNote = res?.email_sent ? " (invitation email sent)" : "";
@@ -435,6 +436,7 @@ const PeopleModal = {
       const res = await API.createInvitation(this.currentTripId, {
         type: "email",
         email: email,
+        base_url: this.getBaseAppUrl(),
       });
 
       const emailNote = res?.email_sent ? "Invitation email sent!" : "Invitation link created for email.";
@@ -457,6 +459,7 @@ const PeopleModal = {
     try {
       await API.createInvitation(this.currentTripId, {
         type: "link",
+        base_url: this.getBaseAppUrl(),
       });
       App.showToast("Invite link created!");
       await this.loadData();
@@ -567,6 +570,20 @@ const PeopleModal = {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+  },
+
+  getBaseAppUrl() {
+    const cleanUrl = window.location.href.split("#")[0].split("?")[0];
+    return cleanUrl.endsWith("/") ? cleanUrl.slice(0, -1) : cleanUrl;
+  },
+
+  getInviteUrl(token) {
+    if (!token) return "";
+    const baseUrl = this.getBaseAppUrl();
+    if (baseUrl.endsWith(".html") || baseUrl.endsWith(".htm")) {
+      return `${baseUrl}#invite/${token}`;
+    }
+    return `${baseUrl}/#invite/${token}`;
   },
 };
 

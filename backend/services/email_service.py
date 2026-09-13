@@ -34,7 +34,10 @@ class EmailService:
         Returns (subject, text_content, html_content).
         """
         app_url = (base_url or Config.APP_BASE_URL).rstrip("/")
-        invite_url = f"{app_url}/#invite/{invite_token}"
+        if app_url.endswith(".html") or app_url.endswith(".htm"):
+            invite_url = f"{app_url}#invite/{invite_token}"
+        else:
+            invite_url = f"{app_url}/#invite/{invite_token}"
         dates_display = f" ({trip_dates})" if trip_dates else ""
         inviter_display = inviter_name or "A fellow traveler"
 

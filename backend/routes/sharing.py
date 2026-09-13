@@ -262,9 +262,11 @@ def get_trip_invitations(trip_id: int):
     for inv in invitations:
         if inv.get("invitee_id"):
             inv["type"] = "direct"
+            inv["invite_type"] = "direct"
             inv["invitee_display_name"] = inv.get("invitee_name") or (inv.get("invitee_email", "").split("@")[0] if inv.get("invitee_email") else "Traveler")
         else:
             inv["type"] = "link"
+            inv["invite_type"] = "link"
             inv["invitee_display_name"] = None
 
     return jsonify({"invitations": invitations}), 200
@@ -328,7 +330,9 @@ def create_invitation(trip_id: int):
 
     invitation = db.query_db("SELECT * FROM trip_invitations WHERE id = %s", (inv_id,), one=True)
     if invitation:
-        invitation["type"] = "direct" if invitee_id else ("email" if target_email else "link")
+        inv_type = "direct" if invitee_id else ("email" if target_email else "link")
+        invitation["type"] = inv_type
+        invitation["invite_type"] = inv_type
         if target_email:
             invitation["recipient_email"] = target_email
 
@@ -341,12 +345,21 @@ def create_invitation(trip_id: int):
     # Dispatch email if recipient email is available
     email_dispatched = False
     if target_email:
+        client_base_url = (data.get("base_url") or "").rstrip("/")
+        if not client_base_url and request.headers.get("Origin"):
+            client_base_url = request.headers.get("Origin").rstrip("/")
+        if not client_base_url and request.headers.get("Referer"):
+            client_base_url = request.headers.get("Referer").split("#")[0].split("?")[0].rstrip("/")
+        if not client_base_url:
+            client_base_url = request.host_url.rstrip("/")
+
         email_dispatched = email_service.send_invitation_email(
             to_email=target_email,
             inviter_name=inviter_name,
             trip_name=trip["name"],
             trip_dates=dates_str,
             invite_token=token,
+            base_url=client_base_url,
             async_send=True,
         )
 
