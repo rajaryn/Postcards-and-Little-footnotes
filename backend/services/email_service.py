@@ -8,7 +8,7 @@ import threading
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr
+from email.utils import formataddr, formatdate, make_msgid
 from typing import Optional, Tuple
 
 from config import Config
@@ -60,6 +60,7 @@ Accept this invitation to join the journey:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>{subject}</title>
 </head>
 <body style="margin: 0; padding: 24px 12px; background-color: #f7f4ec; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2c2925; -webkit-font-smoothing: antialiased;">
@@ -127,7 +128,7 @@ Accept this invitation to join the journey:
 
     @classmethod
     def _dispatch_smtp_sync(cls, to_email: str, subject: str, text_content: str, html_content: str) -> bool:
-        """Synchronously dispatch email through configured SMTP host."""
+        """Synchronously dispatch email through configured SMTP host with anti-spam compliance headers."""
         if not Config.is_smtp_configured():
             logger.info("ℹ️ [Email] SMTP_HOST not configured. Email dispatch skipped.")
             return False
@@ -137,10 +138,18 @@ Accept this invitation to join the journey:
             from_name = Config.SMTP_FROM_NAME or "Postcards & Little Footnotes"
             from_header = formataddr((from_name, from_email))
 
+            domain = from_email.split("@")[-1] if "@" in from_email else "postcards.local"
+
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
             msg["From"] = from_header
             msg["To"] = to_email
+            msg["Date"] = formatdate(localtime=True)
+            msg["Message-ID"] = make_msgid(domain=domain)
+            msg["Reply-To"] = from_header
+            msg["Auto-Submitted"] = "auto-generated"
+            msg["X-Mailer"] = "Postcards-Little-Footnotes-Mailer"
+            msg["MIME-Version"] = "1.0"
 
             part_text = MIMEText(text_content, "plain", "utf-8")
             part_html = MIMEText(html_content, "html", "utf-8")
@@ -162,10 +171,10 @@ Accept this invitation to join the journey:
             server.sendmail(from_email, [to_email], msg.as_string())
             server.quit()
 
-            logger.info(f"✨ [Email] Invitation email successfully sent to {to_email}!")
+            logger.info(f"✨ [Email] Invitation email successfully sent via SMTP to {to_email}!")
             return True
         except Exception as e:
-            logger.error(f"❌ [Email] Failed to send email to {to_email}: {e}", exc_info=True)
+            logger.error(f"❌ [Email] Failed to send email via SMTP to {to_email}: {e}", exc_info=True)
             return False
 
     @classmethod
@@ -180,7 +189,7 @@ Accept this invitation to join the journey:
         async_send: bool = True,
     ) -> bool:
         """
-        Send a trip invitation email.
+        Send a trip invitation email via standard SMTP.
         If async_send is True, dispatches on a background thread to prevent HTTP blocking.
         """
         if not to_email:

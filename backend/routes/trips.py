@@ -15,7 +15,7 @@ def _get_trip_members_info(trip_id: int, current_user_id: int = None):
         FROM trip_members tm
         JOIN users u ON tm.user_id = u.id
         WHERE tm.trip_id = %s
-        ORDER BY tm.role DESC, tm.joined_at ASC
+        ORDER BY (CASE WHEN tm.role = 'creator' THEN 0 ELSE 1 END), tm.joined_at ASC
     """
     members = db.query_db(sql, (trip_id,)) or []
     

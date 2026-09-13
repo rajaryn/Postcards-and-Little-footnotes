@@ -1,4 +1,3 @@
-
 # Postcards & Little Footnotes — Architecture
 
 ## 1. Project Overview
@@ -43,9 +42,10 @@ The core action is:
 * HTML5 semantic markup
 * CSS3 with custom properties and responsive fluid typography
 * Vanilla JavaScript (modular architecture using singleton namespaces)
+* Client-side HEIC/HEIF WebAssembly image transcoder (`heic2any.min.js`)
 * PWA Web App Manifest (`manifest.json`)
-* Service Worker (`service-worker.js`) caching static shell assets
-* Browser APIs: Camera capture, File API, History/Hash routing, LocalStorage
+* Service Worker (`service-worker.js`) caching static shell assets (cache version: `postcards-shell-v6`)
+* Browser APIs: Camera capture, File API, Drag-and-Drop API, History/Hash routing, LocalStorage
 
 No frontend framework is required.
 
@@ -56,13 +56,14 @@ No frontend framework is required.
 * Flask REST-style JSON endpoints with custom JSON datetime serializer
 * Authentication: `werkzeug.security` (secure password hashing) & `itsdangerous` (`URLSafeTimedSerializer` signed auth tokens)
 * Image storage service: `boto3` for Cloudflare R2 presigned URLs and streaming upload fallback
+* Notification Service: Standard Python `smtplib` + `email.mime` background thread worker with anti-spam compliance headers (`Message-ID`, `Date`, `Auto-Submitted`, `X-Mailer`, `Reply-To`)
 * Flask CORS support for cross-origin API integration
 
 ### Database
 
 * TiDB Cloud (Sole Database)
 * MySQL-compatible SQL connector (`pymysql` with TLS/SSL encryption)
-* Relational schema with foreign keys (`users` -> `trips` -> `moments`) and parameterized SQL queries
+* Relational schema with foreign keys (`users` -> `trips` -> `trip_members`, `trip_invitations`, `moments`) and parameterized SQL queries
 * Built-in connection lifecycle management with automatic reconnect on drop
 * Graceful error handling: connection or query failures return friendly 503 JSON responses without leaking credentials or internal stack traces
 
@@ -94,10 +95,13 @@ R2 credentials must remain server-side and must never be exposed to the frontend
 │                                                        │
 │ - Auth & Landing View (Showcase carousel & sign-in)    │
 │ - Trips Collection View (List mode & Desk Canvas mode) │
+│ - Interactive Tactile Calendar & Date Presets          │
+│ - People Modal (Roster, Granular Member Permissions)   │
+│ - Invitations Banner & Preview Accept/Decline View     │
 │ - Timeline View (Chronological Day-grouped moments)    │
-│ - Capture Modal (Photo, Footnote, Date/Time picker)    │
+│ - Capture Modal (Photo, Footnote, Drag & Drop, HEIC)   │
 │ - Privacy Policy Modal                                 │
-│ - Service Worker (postcards-shell cache)               │
+│ - Service Worker (postcards-shell-v6 cache)            │
 └──────────────────────────┬─────────────────────────────┘
                            │ HTTP / JSON (Bearer Token)
                            ▼
@@ -106,9 +110,11 @@ R2 credentials must remain server-side and must never be exposed to the frontend
 │                                                        │
 │ - Auth Routes (/api/auth/*)                            │
 │ - Trip Routes (/api/trips/*)                           │
+│ - Sharing & Invite Routes (/api/trips/<id>/members,..) │
 │ - Moment Routes (/api/trips/<id>/moments, /api/moments)│
 │ - Upload Routes (/api/uploads/*)                       │
 │ - Health Check Routes (/api/health, /api/ping)         │
+│ - Non-blocking background SMTP email dispatcher        │
 │ - Input Validation & Error Handling                    │
 └──────────────┬───────────────────────────┬─────────────┘
                │ SQL (TLS)                 │ S3 Protocol (HTTPS)
@@ -118,8 +124,10 @@ R2 credentials must remain server-side and must never be exposed to the frontend
 │                              │ │                              │
 │ - users                      │ │ - Private bucket             │
 │ - trips (user_id FK)         │ │ - Presigned PUT / GET URLs   │
-│ - moments (trip_id FK)       │ │ - Object keys: trips/<id>/.. │
-└──────────────────────────────┘ └──────────────────────────────┘
+│ - trip_members (permissions) │ │ - Object keys: trips/<id>/.. │
+│ - trip_invitations (tokens)  │ └──────────────────────────────┘
+│ - moments (trip_id FK)       │
+└──────────────────────────────┘
 ```
 
 ---
@@ -158,7 +166,7 @@ CREATE TABLE trips (
 ```
 
 * Unauthenticated/demo trips have `user_id = NULL`.
-* Registered users only see their own trips (except demo trips fallback where enabled).
+* Registered users see their own trips and trips where they are enrolled in `trip_members`.
 
 ### moments
 
@@ -291,10 +299,10 @@ GET    /api/users/search                     - Search travelers by email or user
 GET    /api/trips/<trip_id>/invitations      - List pending invitations (creator only)
 POST   /api/trips/<trip_id>/invitations      - Create direct invitation or shareable invite link (creator only)
 DELETE /api/trips/<trip_id>/invitations/<id> - Revoke an invitation (creator only)
+GET    /api/invitations/pending              - List user's pending incoming invitations
 GET    /api/invitations/<token>              - Preview invitation details without exposing memories
 POST   /api/invitations/<token>/accept       - Accept invitation and join trip as member
 POST   /api/invitations/<token>/decline      - Decline invitation
-GET    /api/invitations/pending              - List user's pending incoming invitations
 ```
 
 ### Image Uploads
@@ -320,20 +328,21 @@ GET    /api/ping               - Alias ping endpoint
 frontend/
 ├── index.html              # Single Page Application HTML shell
 ├── manifest.json           # PWA installation manifest & theme colors
-├── service-worker.js       # App shell static asset caching
+├── service-worker.js       # App shell static asset caching (postcards-shell-v6)
 ├── icons/                  # Web app icons
 ├── css/
 │   ├── reset.css           # Modern CSS reset
-│   └── styles.css          # Editorial theme, desk canvas, typography, modal layouts, shared trips
+│   └── styles.css          # Editorial theme, desk canvas, calendar, typography, modals, shared trips
 └── js/
     ├── api.js              # Centralized fetch wrapper, auth, sharing & invitations
     ├── app.js              # App lifecycle, SPA hash router (#invite/<token>), modals, toasts
     ├── auth.js             # Auth controller: login, register, session header, account delete
     ├── people.js           # People modal controller: roster, granular permissions, invite link generator
-    ├── invitations.js      # Invitation preview & acceptance controller
-    ├── trips.js            # Trips list & interactive Desk Canvas zoom-out mode (with shared notes)
+    ├── invitations.js      # Invitation preview & acceptance controller, in-app invite badges
+    ├── trips.js            # Trips list, Desk Canvas zoom-out mode, interactive calendar date picker
     ├── moments.js          # Chronological timeline & quiet author attributions (— Raj, — Ananya)
-    └── capture.js          # Instant capture modal, camera integration, R2 upload workflow
+    ├── capture.js          # Instant capture modal, camera, drag & drop, HEIC conversion, R2 upload
+    └── heic2any.min.js     # Client-side HEIC/HEIF WebAssembly image transcoder
 ```
 
 ---
@@ -343,7 +352,7 @@ frontend/
 ```text
 backend/
 ├── app.py                  # Flask application factory, routes registration, SPA static serving
-├── config.py               # Environment configuration (TiDB, R2, SECRET_KEY, PORT)
+├── config.py               # Environment configuration (TiDB, R2, SMTP, SECRET_KEY, PORT)
 ├── db.py                   # TiDB connection manager, query helpers, reconnect handling
 ├── init_tidb.py            # Database & tables initialization script (with trip_members & trip_invitations)
 ├── requirements.txt        # Backend dependencies
@@ -357,6 +366,7 @@ backend/
 ├── services/
 │   ├── auth_service.py     # Password hashing, token encoding/decoding, login_required decorator
 │   ├── r2_service.py       # Cloudflare R2 boto3 client, presigned PUT/GET, object deletion
+│   ├── email_service.py    # Zero-dependency background SMTP mailer with anti-spam compliance headers
 │   ├── trip_service.py     # Trip domain logic
 │   ├── sharing_service.py  # Sharing domain logic & token generation
 │   └── moment_service.py   # Moment domain logic
@@ -370,7 +380,7 @@ backend/
 The application is installable as a Progressive Web App.
 
 * `manifest.json`: Defines app name ("Postcards & Little Footnotes"), theme color (`#f7f4ec`), background color (`#efece3`), display mode (`standalone`), and icon set.
-* `service-worker.js`: Caches core static assets (HTML, CSS, JS) to ensure fast loading and offline shell availability.
+* `service-worker.js`: Caches core static assets (HTML, CSS, JS) under `postcards-shell-v6` to ensure fast loading and offline shell availability.
 
 ---
 
@@ -380,18 +390,19 @@ Cloudflare R2 is the authoritative image object store.
 
 Upload workflow:
 
-1. Frontend initiates upload by requesting a presigned PUT URL from `/api/uploads/presign`.
-2. Flask validates file metadata (MIME type, extension, size limit) and generates an object key: `trips/<trip_id>/moments/<uuid>.<ext>`.
-3. Browser uploads directly to R2 using the presigned URL.
-4. If browser preflight/CORS encounters issues, frontend automatically falls back to `/api/uploads/direct` for direct backend streaming.
-5. The moment record is inserted into TiDB containing `photo_key`.
-6. When displaying moments, Flask generates short-lived presigned GET URLs (`generate_presigned_download_url`).
+1. User selects or drags a photo. If format is HEIC/HEIF (common on iOS/macOS), `heic2any.min.js` automatically converts it to JPEG on-demand in the browser via WebAssembly.
+2. Frontend initiates upload by requesting a presigned PUT URL from `/api/uploads/presign`.
+3. Flask validates file metadata (MIME type, extension, size limit) and generates an object key: `trips/<trip_id>/moments/<uuid>.<ext>`.
+4. Browser uploads directly to R2 using the presigned URL.
+5. If browser preflight/CORS encounters issues, frontend automatically falls back to `/api/uploads/direct` for direct backend streaming.
+6. The moment record is inserted into TiDB containing `photo_key`.
+7. When displaying moments, Flask generates short-lived presigned GET URLs (`generate_presigned_download_url`).
 
 ---
 
 ## 11. Security Principles
 
-* **Secret Isolation**: All credentials (TiDB password, Cloudflare R2 access keys, Secret Key) remain server-side in `.env`.
+* **Secret Isolation**: All credentials (TiDB password, Cloudflare R2 access keys, SMTP passwords, Secret Key) remain server-side in `.env`.
 * **Password Security**: Passwords hashed using Werkzeug secure password hashing (PBKDF2/Argon2).
 * **Token Security**: Session auth tokens signed using `URLSafeTimedSerializer` with cryptographic salt and expiration.
 * **SQL Injection Prevention**: All SQL queries use parameterized queries via `pymysql`.
@@ -409,22 +420,26 @@ Upload workflow:
 * User registration, sign in, token sessions, and complete account deletion
 * Privacy policy modal and zero-tracking commitment
 * Create, view, open, and delete trips
+* Interactive tactile calendar date range picker with quick presets (*Undated*, *This Weekend*, *Next 7 Days*, *Custom Range*) and bottom sheet swipe-to-dismiss gesture
 * Shared Trips: multi-contributor journey collaboration without social network bloat
 * Granular human permissions: Add moments, Edit own moments, Delete own moments
 * Member management: Creator roster management, user search, member removal
 * Explicit invitations: Direct user invitations and shareable private invite links with token preview and acceptance
+* In-app pending invitation notifications banner & badge checking
+* Automated zero-dependency SMTP email dispatching on non-blocking background daemon threads with anti-spam compliance headers
 * Member leaving with permanent moment & attribution retention
 * Single chronological timeline ordered by timestamp (never segregated by author)
 * Quiet typographic author attribution (`— Raj`, `— Ananya`)
 * List view and interactive Desk Canvas (Zoom Out / Spread) view with pan & zoom
 * Instant moment capture (photo, footnote caption, or both)
-* Camera capture and file picker support
+* Camera capture, file picker, and drag-and-drop support
+* Client-side on-demand Apple HEIC/HEIF to JPEG WebAssembly conversion (`heic2any.min.js`)
 * Custom date & time picker with live-default timestamp
 * Chronological day-grouped timeline with tactile editorial styling
 * Granular deletion (delete entire moment, photo only, or footnote only)
 * Private Cloudflare R2 image storage with presigned and direct streaming uploads
 * TiDB Cloud relational persistence with TLS/SSL
-* PWA installation with Web App Manifest and Service Worker caching
+* PWA installation with Web App Manifest and Service Worker caching (`postcards-shell-v6`)
 * Health check and keep-alive ping endpoints for cloud hosting
 
 ---
@@ -470,12 +485,11 @@ Do not introduce a framework, library, service, database table, abstraction, or 
 - Implemented Shared Trips specification allowing multiple travelers to contribute to one chronological collection.
 - Added `trip_members` and `trip_invitations` tables to TiDB with granular permissions (`can_add_moments`, `can_edit_moments`, `can_delete_moments`).
 - Added snapshot `author_name` and `user_id` columns to `moments` table.
-- Built sharing REST endpoints (`/api/trips/<id>/members`, `/api/trips/<id>/invitations`, `/api/invitations/<token>`, `/api/users/search`, `/api/trips/<id>/leave`).
+- Built sharing REST endpoints (`/api/trips/<id>/members`, `/api/trips/<id>/invitations`, `/api/invitations/pending`, `/api/invitations/<token>`, `/api/users/search`, `/api/trips/<id>/leave`).
 - Created frontend `people.js` and `invitations.js` modules with quiet typography, permission checkboxes, direct search, and invite link generation.
 - Implemented quiet author attribution (`— Raj`, `— Ananya`) on postcards and footnotes across vertical timeline and desk spread views.
 - Added member leaving workflow with retention of moments and attribution.
-- Integrated automated zero-dependency SMTP email dispatching for trip invitations on background daemon threads.
+- Integrated automated zero-dependency SMTP email dispatching for trip invitations on background daemon threads with anti-spam compliance headers (`Message-ID`, `Date`, `Auto-Submitted`, `X-Mailer`, `Reply-To`).
+- Added tactile inline calendar date range picker with quick presets (*Undated*, *This Weekend*, *Next 7 Days*, *Custom Range*) and mobile swipe-to-dismiss gesture handling in Create Trip modal.
 - Added photo drag-and-drop and on-demand client-side HEIC/HEIF to JPEG WebAssembly conversion in capture modal.
-- Documented direct Cloudflare R2 browser uploads with HMAC-SHA256 SigV4 presigned URLs, CORS policy, and streaming proxy fallback.
-
-
+- Updated Service Worker cache to `postcards-shell-v6`.

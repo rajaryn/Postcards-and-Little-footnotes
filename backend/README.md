@@ -1,6 +1,6 @@
 # Postcards & Little Footnotes — Backend API
 
-Backend API service for **Postcards & Little Footnotes** PWA built with Python, Flask, TiDB Cloud (MySQL-compatible relational database), and Cloudflare R2 object storage.
+Backend API service for **Postcards & Little Footnotes** PWA built with Python, Flask, TiDB Cloud (MySQL-compatible relational database), Cloudflare R2 object storage, and background SMTP email notifications.
 
 ---
 
@@ -11,6 +11,7 @@ Backend API service for **Postcards & Little Footnotes** PWA built with Python, 
 * **Database:** TiDB Cloud (MySQL protocol with TLS/SSL encryption via `pymysql`)
 * **Storage:** Cloudflare R2 via `boto3` (Presigned PUT/GET URLs & direct backend streaming fallback)
 * **Authentication:** Password hashing via `werkzeug.security` & signed session tokens via `itsdangerous.URLSafeTimedSerializer`
+* **Email Notifications:** Asynchronous background SMTP mailer (`smtplib` + `email.mime`) with anti-spam compliance headers (`Message-ID`, `Date`, `Auto-Submitted`, `X-Mailer`, `Reply-To`)
 
 ---
 
@@ -47,7 +48,8 @@ R2_ACCOUNT_ID=your_cloudflare_account_id
 R2_ACCESS_KEY_ID=your_r2_access_key_id
 R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
 R2_BUCKET_NAME=trip-moments
-# SMTP Email Configuration (Optional for trip invites)
+
+# SMTP Email Configuration (Optional for trip invitation emails)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your_email@gmail.com
@@ -115,41 +117,42 @@ uv run pytest
 | `GET` | `/api/trips` | List all trips for current user (owned or shared membership) | Optional |
 | `POST` | `/api/trips` | Create a new trip (`name`, `start_date`, `end_date`) | Optional |
 | `GET` | `/api/trips/<trip_id>` | Get details, user role, and permissions for a single trip | Optional |
-| `DELETE` | `/api/trips/<trip_id>` | Delete a trip (creator only) | Yes |
+| `DELETE` | `/api/trips/<trip_id>` | Delete a trip and its moments (creator only) | Yes |
 | `POST` | `/api/trips/<trip_id>/leave` | Leave a shared trip (retains author attributions) | Yes |
 
 ### 👥 Shared Trips & Invitations (`/api/trips/<id>/members`, `/api/invitations`)
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
 | `GET` | `/api/trips/<trip_id>/members` | List travelers on trip with roles and permissions | Yes |
-| `PATCH` | `/api/trips/<trip_id>/members/<user_id>` | Update member permissions (`can_add`, `can_edit`, `can_delete`) | Yes |
+| `PATCH` | `/api/trips/<trip_id>/members/<user_id>` | Update member permissions (`can_add_moments`, `can_edit_moments`, `can_delete_moments`) | Yes |
 | `DELETE` | `/api/trips/<trip_id>/members/<user_id>` | Remove a traveler from trip (creator only) | Yes |
 | `GET` | `/api/users/search?q=<query>&trip_id=<id>` | Search travelers by email or name to invite | Yes |
 | `GET` | `/api/trips/<trip_id>/invitations` | List pending invitations & active share links | Yes |
-| `POST` | `/api/trips/<trip_id>/invitations` | Create direct invite or shareable link (dispatches SMTP email) | Yes |
+| `POST` | `/api/trips/<trip_id>/invitations` | Create direct invite or shareable link (dispatches background SMTP email) | Yes |
 | `DELETE` | `/api/trips/<trip_id>/invitations/<id>` | Revoke pending invitation or link | Yes |
+| `GET` | `/api/invitations/pending` | List authenticated user's pending incoming invitations | Yes |
 | `GET` | `/api/invitations/<token>` | Privacy-first preview of an invitation | No |
 | `POST` | `/api/invitations/<token>/accept` | Join shared trip via invite token | Yes |
 | `POST` | `/api/invitations/<token>/decline` | Decline invitation | Yes |
 
 ### 📸 Moments (`/api/moments` & `/api/trips/<id>/moments`)
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/trips/<trip_id>/moments` | List chronological moments for a trip with presigned photo URLs |
-| `POST` | `/api/trips/<trip_id>/moments` | Add moment (`photo_key`, `caption`, `created_at`, coordinates) |
-| `DELETE` | `/api/moments/<moment_id>` | Delete entire moment and its R2 image |
-| `DELETE` | `/api/moments/<moment_id>/photo` | Delete only the photo from a moment (retaining footnote) |
-| `DELETE` | `/api/moments/<moment_id>/footnote` | Delete only the footnote from a moment (retaining photo) |
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `GET` | `/api/trips/<trip_id>/moments` | List chronological moments for a trip with presigned photo URLs & author snapshots | Optional |
+| `POST` | `/api/trips/<trip_id>/moments` | Add moment (`photo_key`, `caption`, `created_at`, coordinates) | Optional |
+| `DELETE` | `/api/moments/<moment_id>` | Delete entire moment and its R2 image (creator or author) | Yes |
+| `DELETE` | `/api/moments/<moment_id>/photo` | Delete only the photo from a moment (retaining footnote) | Yes |
+| `DELETE` | `/api/moments/<moment_id>/footnote` | Delete only the footnote from a moment (retaining photo) | Yes |
 
 ### 📤 Image Uploads (`/api/uploads`)
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/uploads/presign` | Generate short-lived presigned PUT URL for direct browser upload to R2 |
-| `POST` | `/api/uploads/direct` | Multipart streaming upload directly through backend to R2 |
-| `PUT` | `/api/uploads/local-put` | Mock upload endpoint for local development without R2 |
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `POST` | `/api/uploads/presign` | Generate short-lived presigned PUT URL for direct browser upload to R2 | No |
+| `POST` | `/api/uploads/direct` | Multipart streaming upload directly through backend to R2 | No |
+| `PUT` | `/api/uploads/local-put` | Mock upload endpoint for local development without R2 | No |
 
 ### 🩺 Health & Keep-Alive (`/api/health`)
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/health` | Health check endpoint for uptime monitoring and keep-alive pings |
-| `GET` | `/api/ping` | Alias ping endpoint |
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `GET` | `/api/health` | Health check endpoint for uptime monitoring and keep-alive pings | No |
+| `GET` | `/api/ping` | Alias ping endpoint | No |

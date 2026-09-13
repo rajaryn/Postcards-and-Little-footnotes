@@ -73,11 +73,20 @@ const App = {
 
       if (profileWrapper) profileWrapper.style.display = "inline-flex";
       if (authBtn) authBtn.style.display = "none";
+
+      if (window.InvitationController && typeof window.InvitationController.checkPendingInvitations === "function") {
+        window.InvitationController.checkPendingInvitations(false);
+      }
     } else {
       if (profileWrapper) profileWrapper.style.display = "none";
       if (authBtn) authBtn.style.display = "inline-flex";
       if (menu) menu.style.display = "none";
       if (profileBtn) profileBtn.setAttribute("aria-expanded", "false");
+
+      if (window.InvitationController && typeof window.InvitationController.updateBadge === "function") {
+        window.InvitationController.updateBadge(0);
+        window.InvitationController.renderPendingBanner([]);
+      }
     }
 
     if (window.AuthModal && typeof window.AuthModal.updateAuthPageState === "function") {
@@ -410,6 +419,12 @@ const App = {
     this.currentView = "auth";
     this.activeTripId = null;
 
+    if (window.MomentsView) {
+      MomentsView.currentTripId = null;
+      MomentsView.currentTrip = null;
+      MomentsView.moments = [];
+    }
+
     document.getElementById("view-auth")?.classList.add("active");
     document.getElementById("view-trips")?.classList.remove("active");
     document.getElementById("view-timeline")?.classList.remove("active");
@@ -433,6 +448,12 @@ const App = {
   showTripsView() {
     this.currentView = "trips";
     this.activeTripId = null;
+
+    if (window.MomentsView) {
+      MomentsView.currentTripId = null;
+      MomentsView.currentTrip = null;
+      MomentsView.moments = [];
+    }
 
     document.getElementById("view-trips")?.classList.add("active");
     document.getElementById("view-auth")?.classList.remove("active");

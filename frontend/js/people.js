@@ -111,6 +111,13 @@ const PeopleModal = {
     const members = this.membersData?.members || [];
     const tripName = this.tripInfo?.name || "this journey";
 
+    // Guarantee creator is ALWAYS at the top, then fellow travelers
+    const sortedMembers = [...members].sort((a, b) => {
+      if (a.role === "creator") return -1;
+      if (b.role === "creator") return 1;
+      return 0;
+    });
+
     let html = `
       <div class="people-header-section">
         <p class="people-intro-note">
@@ -122,33 +129,34 @@ const PeopleModal = {
 
       <!-- Travelers Roster -->
       <div class="people-roster-section">
-        <h3 class="people-section-subtitle title-serif">travelers (${members.length})</h3>
+        <h3 class="people-section-subtitle title-serif">travelers (${sortedMembers.length})</h3>
         <div class="people-list">
     `;
 
-    members.forEach((m) => {
-      const isSelf = App.currentUser && App.currentUser.id === m.id;
-      const memberName = m.username || (m.email ? m.email.split("@")[0] : "Traveler");
+    sortedMembers.forEach((m) => {
+      const memberId = m.user_id || m.id;
+      const isSelf = m.is_current_user || (App.currentUser && App.currentUser.id === memberId);
+      const memberName = m.name || m.username || (m.email ? m.email.split("@")[0] : "Traveler");
       const initial = memberName.charAt(0).toUpperCase();
       const isMemberCreator = m.role === "creator";
 
       html += `
-        <div class="people-card ${isMemberCreator ? "is-creator" : ""}" data-user-id="${m.id}">
+        <div class="people-card ${isMemberCreator ? "is-creator" : ""}" data-user-id="${memberId}">
           <div class="people-card-header">
-            <div class="people-avatar-circle">${initial}</div>
+            <div class="people-avatar-circle ${isMemberCreator ? "creator-avatar" : ""}">${initial}</div>
             <div class="people-meta">
               <div class="people-name-row">
                 <span class="people-name title-serif">${this.escapeHtml(memberName)}</span>
                 ${isSelf ? `<span class="people-self-badge">(you)</span>` : ""}
-                <span class="people-role-tag font-script">${isMemberCreator ? "creator" : "traveler"}</span>
+                <span class="people-role-tag font-script ${isMemberCreator ? "role-creator" : "role-traveler"}">${isMemberCreator ? "creator · host" : "traveler"}</span>
               </div>
               <div class="people-email">${this.escapeHtml(m.email)}</div>
             </div>
             ${
               isCreator && !isMemberCreator
                 ? `
-              <button type="button" class="people-remove-btn" title="Remove traveler" onclick="PeopleModal.handleRemoveMember(${m.id}, '${this.escapeHtml(memberName)}')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <button type="button" class="people-remove-btn" title="Remove traveler" aria-label="Remove traveler" onclick="PeopleModal.handleRemoveMember(${memberId}, '${this.escapeHtml(memberName)}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
@@ -164,22 +172,22 @@ const PeopleModal = {
       if (isCreator && !isMemberCreator) {
         html += `
           <div class="people-permissions-box">
-            <span class="permissions-label">permissions:</span>
-            <div class="permissions-checkboxes">
-              <label class="permission-item">
-                <input type="checkbox" ${m.can_add_moments ? "checked" : ""} onchange="PeopleModal.handleTogglePermission(${m.id}, 'can_add_moments', this.checked)" />
-                <span class="permission-checkbox-custom"></span>
-                <span class="permission-text">add memories</span>
+            <span class="permissions-label">permissions</span>
+            <div class="permissions-pills-row">
+              <label class="permission-pill ${m.can_add_moments ? "is-active" : ""}">
+                <input type="checkbox" ${m.can_add_moments ? "checked" : ""} onchange="PeopleModal.handleTogglePermission(${memberId}, 'can_add_moments', this.checked)" />
+                <span class="permission-pill-icon">✦</span>
+                <span class="permission-pill-text">add memories</span>
               </label>
-              <label class="permission-item">
-                <input type="checkbox" ${m.can_edit_moments ? "checked" : ""} onchange="PeopleModal.handleTogglePermission(${m.id}, 'can_edit_moments', this.checked)" />
-                <span class="permission-checkbox-custom"></span>
-                <span class="permission-text">edit own</span>
+              <label class="permission-pill ${m.can_edit_moments ? "is-active" : ""}">
+                <input type="checkbox" ${m.can_edit_moments ? "checked" : ""} onchange="PeopleModal.handleTogglePermission(${memberId}, 'can_edit_moments', this.checked)" />
+                <span class="permission-pill-icon">✎</span>
+                <span class="permission-pill-text">edit own</span>
               </label>
-              <label class="permission-item">
-                <input type="checkbox" ${m.can_delete_moments ? "checked" : ""} onchange="PeopleModal.handleTogglePermission(${m.id}, 'can_delete_moments', this.checked)" />
-                <span class="permission-checkbox-custom"></span>
-                <span class="permission-text">delete own</span>
+              <label class="permission-pill ${m.can_delete_moments ? "is-active" : ""}">
+                <input type="checkbox" ${m.can_delete_moments ? "checked" : ""} onchange="PeopleModal.handleTogglePermission(${memberId}, 'can_delete_moments', this.checked)" />
+                <span class="permission-pill-icon">✕</span>
+                <span class="permission-pill-text">delete own</span>
               </label>
             </div>
           </div>
@@ -487,12 +495,22 @@ const PeopleModal = {
 
   async handleTogglePermission(userId, permKey, value) {
     try {
+      // Optimistic visual pill update
+      const card = document.querySelector(`.people-card[data-user-id="${userId}"]`);
+      if (card) {
+        const input = card.querySelector(`input[onchange*="${permKey}"]`);
+        const pill = input ? input.closest(".permission-pill") : null;
+        if (pill) {
+          pill.classList.toggle("is-active", value);
+        }
+      }
+
       await API.updateMemberPermissions(this.currentTripId, userId, {
         [permKey]: value,
       });
       App.showToast("Permissions updated.");
       // Update local cache
-      const member = this.membersData?.members?.find((m) => m.id === userId);
+      const member = this.membersData?.members?.find((m) => (m.user_id === userId || m.id === userId));
       if (member) member[permKey] = value;
     } catch (err) {
       App.showToast(err.message || "Could not update permissions", "error");

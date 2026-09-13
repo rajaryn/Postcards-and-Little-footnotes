@@ -8,6 +8,14 @@ const TripsView = {
   trips: [],
   isSpreadMode: false,
 
+  calendar: {
+    viewDate: new Date(),
+    startDate: null,
+    endDate: null,
+    isPickingEnd: false,
+    activePreset: "none",
+  },
+
   init() {
     // Check saved view preference
     try {
@@ -17,6 +25,8 @@ const TripsView = {
     }
 
     this.bindEvents();
+    this.initCalendar();
+    this.bindSwipeToDismiss();
     this.updateSwitcherUI();
   },
 
@@ -40,6 +50,13 @@ const TripsView = {
       if (e.target === this.modal) this.closeModal();
     });
 
+    // Handle escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.modal?.classList.contains("open")) {
+        this.closeModal();
+      }
+    });
+
     // Handle form submit
     this.form?.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -54,6 +71,322 @@ const TripsView = {
     document.getElementById("btn-view-trips-spread")?.addEventListener("click", () => {
       this.setSpreadMode(true);
     });
+  },
+
+  formatDateLocalYMD(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  },
+
+  initCalendar() {
+    // Preset chips
+    document.querySelectorAll(".trip-preset-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const preset = chip.getAttribute("data-preset");
+        this.setPreset(preset);
+      });
+    });
+
+    // Month Navigation
+    document.getElementById("btn-cal-prev")?.addEventListener("click", () => {
+      this.calendar.viewDate.setMonth(this.calendar.viewDate.getMonth() - 1);
+      this.renderCalendar();
+    });
+
+    document.getElementById("btn-cal-next")?.addEventListener("click", () => {
+      this.calendar.viewDate.setMonth(this.calendar.viewDate.getMonth() + 1);
+      this.renderCalendar();
+    });
+
+    // Clear Button in Date Stamp
+    document.getElementById("btn-clear-custom-dates")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.setPreset("none");
+    });
+
+    // Click on date stamp card toggles calendar
+    document.getElementById("trip-date-stamp-card")?.addEventListener("click", () => {
+      const widget = document.getElementById("paper-calendar-widget");
+      if (widget) {
+        const isHidden = widget.style.display === "none";
+        widget.style.display = isHidden ? "block" : "none";
+        if (isHidden) {
+          this.setPresetChipActive("custom");
+          this.renderCalendar();
+        }
+      }
+    });
+  },
+
+  setPreset(preset) {
+    this.calendar.activePreset = preset;
+    const now = new Date();
+
+    if (preset === "ongoing") {
+      this.calendar.startDate = this.formatDateLocalYMD(now);
+      this.calendar.endDate = null;
+      this.calendar.isPickingEnd = false;
+      this.hideCalendarWidget();
+    } else if (preset === "weekend") {
+      const day = now.getDay();
+      const sat = new Date(now);
+      const sun = new Date(now);
+      if (day === 6) {
+        sun.setDate(now.getDate() + 1);
+      } else if (day === 0) {
+        sat.setDate(now.getDate() - 1);
+      } else {
+        const daysUntilSat = 6 - day;
+        sat.setDate(now.getDate() + daysUntilSat);
+        sun.setDate(sat.getDate() + 1);
+      }
+      this.calendar.startDate = this.formatDateLocalYMD(sat);
+      this.calendar.endDate = this.formatDateLocalYMD(sun);
+      this.calendar.isPickingEnd = false;
+      this.hideCalendarWidget();
+    } else if (preset === "month") {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      this.calendar.startDate = this.formatDateLocalYMD(firstDay);
+      this.calendar.endDate = this.formatDateLocalYMD(lastDay);
+      this.calendar.isPickingEnd = false;
+      this.hideCalendarWidget();
+    } else if (preset === "custom") {
+      const widget = document.getElementById("paper-calendar-widget");
+      if (widget) {
+        widget.style.display = widget.style.display === "none" ? "block" : "none";
+      }
+      if (this.calendar.startDate) {
+        const d = this.parseLocalDate(this.calendar.startDate);
+        if (d) this.calendar.viewDate = new Date(d.getFullYear(), d.getMonth(), 1);
+      }
+    } else if (preset === "none") {
+      this.calendar.startDate = null;
+      this.calendar.endDate = null;
+      this.calendar.isPickingEnd = false;
+      this.hideCalendarWidget();
+    }
+
+    this.setPresetChipActive(preset);
+    this.syncHiddenDateInputs();
+    this.updateDateStampUI();
+    this.renderCalendar();
+  },
+
+  setPresetChipActive(preset) {
+    document.querySelectorAll(".trip-preset-chip").forEach((chip) => {
+      chip.classList.toggle("active", chip.getAttribute("data-preset") === preset);
+    });
+  },
+
+  hideCalendarWidget() {
+    const widget = document.getElementById("paper-calendar-widget");
+    if (widget) widget.style.display = "none";
+  },
+
+  syncHiddenDateInputs() {
+    const startInput = document.getElementById("input-trip-start");
+    const endInput = document.getElementById("input-trip-end");
+    if (startInput) startInput.value = this.calendar.startDate || "";
+    if (endInput) endInput.value = this.calendar.endDate || "";
+  },
+
+  updateDateStampUI() {
+    const textEl = document.getElementById("trip-date-stamp-text");
+    const cardEl = document.getElementById("trip-date-stamp-card");
+    const clearBtn = document.getElementById("btn-clear-custom-dates");
+    if (!textEl || !cardEl) return;
+
+    const { startDate, endDate, activePreset } = this.calendar;
+
+    if (startDate && endDate) {
+      const s = this.parseLocalDate(startDate);
+      const e = this.parseLocalDate(endDate);
+      const diffMs = e.getTime() - s.getTime();
+      const days = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
+      const dayLabel = days === 1 ? "1 day" : `${days} days`;
+      textEl.textContent = `${this.formatTripDates(startDate, endDate)} · ${dayLabel}`;
+      cardEl.classList.add("has-dates");
+      if (clearBtn) clearBtn.style.display = "inline-flex";
+    } else if (startDate) {
+      if (activePreset === "ongoing") {
+        textEl.textContent = `Ongoing · Started ${this.formatTripDates(startDate)}`;
+      } else {
+        textEl.textContent = `Starts ${this.formatTripDates(startDate)} · (tap return date)`;
+      }
+      cardEl.classList.add("has-dates");
+      if (clearBtn) clearBtn.style.display = "inline-flex";
+    } else {
+      textEl.textContent = "No specific dates · Quiet journey";
+      cardEl.classList.remove("has-dates");
+      if (clearBtn) clearBtn.style.display = "none";
+    }
+  },
+
+  renderCalendar() {
+    const grid = document.getElementById("calendar-days-grid");
+    const monthLabel = document.getElementById("calendar-month-year-label");
+    if (!grid || !monthLabel) return;
+
+    const view = this.calendar.viewDate;
+    const year = view.getFullYear();
+    const month = view.getMonth();
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    monthLabel.textContent = `${monthNames[month]} ${year}`;
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const todayStr = this.formatDateLocalYMD(new Date());
+    const { startDate, endDate } = this.calendar;
+
+    let cellsHtml = "";
+
+    // Prev month padding days
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const dayNum = daysInPrevMonth - i;
+      const prevDate = new Date(year, month - 1, dayNum);
+      const dateStr = this.formatDateLocalYMD(prevDate);
+      cellsHtml += `
+        <div class="cal-day-cell is-other-month">
+          <button type="button" class="cal-day-btn" data-date="${dateStr}">${dayNum}</button>
+        </div>
+      `;
+    }
+
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currDate = new Date(year, month, day);
+      const dateStr = this.formatDateLocalYMD(currDate);
+
+      const isToday = dateStr === todayStr;
+      const isStart = dateStr === startDate;
+      const isEnd = dateStr === endDate;
+      const isSelected = isStart || isEnd;
+      const isInRange = startDate && endDate && dateStr >= startDate && dateStr <= endDate;
+
+      let cellClasses = ["cal-day-cell"];
+      if (isToday) cellClasses.push("is-today");
+      if (isStart) cellClasses.push("is-range-start");
+      if (isEnd) cellClasses.push("is-range-end");
+      if (isSelected) cellClasses.push("is-selected");
+      if (isInRange && !isSelected) cellClasses.push("is-in-range");
+
+      cellsHtml += `
+        <div class="${cellClasses.join(" ")}">
+          <button type="button" class="cal-day-btn" data-date="${dateStr}">${day}</button>
+        </div>
+      `;
+    }
+
+    // Next month padding days to complete row/grid
+    const totalRendered = firstDayIndex + daysInMonth;
+    const remaining = totalRendered % 7 === 0 ? 0 : 7 - (totalRendered % 7);
+    for (let nextDay = 1; nextDay <= remaining; nextDay++) {
+      const nextDate = new Date(year, month + 1, nextDay);
+      const dateStr = this.formatDateLocalYMD(nextDate);
+      cellsHtml += `
+        <div class="cal-day-cell is-other-month">
+          <button type="button" class="cal-day-btn" data-date="${dateStr}">${nextDay}</button>
+        </div>
+      `;
+    }
+
+    grid.innerHTML = cellsHtml;
+
+    // Attach click listeners to all day buttons
+    grid.querySelectorAll(".cal-day-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const dateStr = btn.getAttribute("data-date");
+        this.handleCalendarDayClick(dateStr);
+      });
+    });
+  },
+
+  handleCalendarDayClick(dateStr) {
+    if (!this.calendar.isPickingEnd || !this.calendar.startDate) {
+      // First tap = start date
+      this.calendar.startDate = dateStr;
+      this.calendar.endDate = null;
+      this.calendar.isPickingEnd = true;
+    } else {
+      // Second tap = end date
+      if (dateStr < this.calendar.startDate) {
+        this.calendar.startDate = dateStr;
+        this.calendar.endDate = null;
+        this.calendar.isPickingEnd = true;
+      } else if (dateStr === this.calendar.startDate) {
+        this.calendar.endDate = null;
+        this.calendar.isPickingEnd = false;
+      } else {
+        this.calendar.endDate = dateStr;
+        this.calendar.isPickingEnd = false;
+      }
+    }
+
+    this.calendar.activePreset = "custom";
+    this.setPresetChipActive("custom");
+    this.syncHiddenDateInputs();
+    this.updateDateStampUI();
+    this.renderCalendar();
+  },
+
+  bindSwipeToDismiss() {
+    const content = this.modal?.querySelector(".modal-content");
+    const handle = document.getElementById("create-trip-drag-handle");
+    const header = this.modal?.querySelector(".modal-header");
+    if (!content) return;
+
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
+
+    const onTouchStart = (e) => {
+      if (content.scrollTop <= 0) {
+        startY = e.touches[0].clientY;
+        currentY = startY;
+        isDragging = true;
+        content.style.transition = "none";
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (!isDragging) return;
+      currentY = e.touches[0].clientY;
+      const deltaY = currentY - startY;
+      if (deltaY > 0) {
+        content.style.transform = `translateY(${deltaY}px)`;
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      content.style.transition = "transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)";
+      const deltaY = currentY - startY;
+      if (deltaY > 75) {
+        this.closeModal();
+      } else {
+        content.style.transform = "";
+      }
+    };
+
+    handle?.addEventListener("touchstart", onTouchStart, { passive: true });
+    handle?.addEventListener("touchmove", onTouchMove, { passive: false });
+    handle?.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    header?.addEventListener("touchstart", onTouchStart, { passive: true });
+    header?.addEventListener("touchmove", onTouchMove, { passive: false });
+    header?.addEventListener("touchend", onTouchEnd, { passive: true });
   },
 
   setSpreadMode(active) {
@@ -87,20 +420,44 @@ const TripsView = {
   },
 
   openModal() {
-    this.form.reset();
+    this.form?.reset();
+    const content = this.modal?.querySelector(".modal-content");
+    if (content) content.style.transform = "";
+
+    // Reset calendar to undated
+    this.calendar.viewDate = new Date();
+    this.calendar.startDate = null;
+    this.calendar.endDate = null;
+    this.calendar.isPickingEnd = false;
+    this.calendar.activePreset = "none";
+    this.setPresetChipActive("none");
+    this.syncHiddenDateInputs();
+    this.updateDateStampUI();
+    this.hideCalendarWidget();
+
     App.lockScroll();
-    this.modal.classList.add("open");
-    document.getElementById("input-trip-name")?.focus();
+    this.modal?.classList.add("open");
+    setTimeout(() => {
+      document.getElementById("input-trip-name")?.focus();
+    }, 50);
   },
 
   closeModal() {
-    this.modal.classList.remove("open");
+    this.modal?.classList.remove("open");
+    const content = this.modal?.querySelector(".modal-content");
+    if (content) content.style.transform = "";
     App.unlockScroll();
   },
 
   async loadTrips() {
     try {
       this.container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px 0;">Loading your trips...</div>`;
+      
+      // Check in-app pending invitations concurrently
+      if (window.InvitationController && typeof window.InvitationController.checkPendingInvitations === "function") {
+        window.InvitationController.checkPendingInvitations(true);
+      }
+
       const trips = await API.getTrips();
       this.trips = trips || [];
       this.renderCurrentView();
@@ -289,9 +646,14 @@ const TripsView = {
     try {
       await API.deleteTrip(tripId);
       App.showToast("Trip deleted.");
-      await this.loadTrips();
+      App.navigateToTrips();
     } catch (err) {
-      App.showToast(err.message || "Failed to delete trip", "error");
+      if (err.status === 404 || (err.message && (err.message.toLowerCase().includes("not found") || err.message.toLowerCase().includes("trip not found")))) {
+        App.showToast("Trip was already deleted.");
+        App.navigateToTrips();
+      } else {
+        App.showToast(err.message || "Failed to delete trip", "error");
+      }
     }
   },
 

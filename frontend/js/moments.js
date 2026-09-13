@@ -105,6 +105,14 @@ const MomentsView = {
       this.renderHeader(trip);
       this.renderCurrentView();
     } catch (err) {
+      if (err.status === 404 || (err.message && (err.message.toLowerCase().includes("not found") || err.message.toLowerCase().includes("trip not found")))) {
+        this.currentTripId = null;
+        this.currentTrip = null;
+        this.moments = [];
+        App.showToast("Trip not found or has been removed.", "error");
+        App.navigateToTrips();
+        return;
+      }
       this.container.innerHTML = `
         <div class="empty-state">
           <h2 class="empty-state-title title-serif">Couldn't load timeline</h2>
@@ -355,9 +363,8 @@ const MomentsView = {
               ${deleteFootnoteBtn}
             </div>
           </div>
-
-          ${separatorDot}
         </article>
+        ${separatorDot}
       `;
     }
 
@@ -405,9 +412,8 @@ const MomentsView = {
             }
           </div>
           ${authorBadge}
-
-          ${separatorDot}
         </article>
+        ${separatorDot}
       `;
     }
 
@@ -446,9 +452,8 @@ const MomentsView = {
             ${deleteFooterBtn}
           </div>
         </div>
-
-        ${separatorDot}
       </article>
+      ${separatorDot}
     `;
   },
 
@@ -505,7 +510,10 @@ const MomentsView = {
   },
 
   async handleDeleteCurrentTrip() {
-    if (!this.currentTripId) return;
+    if (!this.currentTripId) {
+      App.navigateToTrips();
+      return;
+    }
     const name = this.currentTrip?.name || "this trip";
     await TripsView.handleDeleteTrip(this.currentTripId, name);
   },

@@ -17,8 +17,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   
-  <link rel="stylesheet" href="/css/reset.css?v=2.25" />
-  <link rel="stylesheet" href="/css/styles.css?v=2.25" />
+  <link rel="stylesheet" href="/css/reset.css?v=2.34" />
+  <link rel="stylesheet" href="/css/styles.css?v=2.34" />
   
   <script>
     // Instant pre-route before first paint to eliminate sign-in page flash on refresh
@@ -70,6 +70,15 @@
           </svg>
           <span>sign in</span>
         </a>
+
+        <!-- In-App Notification Trigger (Pending Invites) -->
+        <button type="button" id="btn-header-notifications" class="header-notification-btn" style="display: none;" aria-label="Journey Invitations" title="Pending journey invitations">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+          <span id="header-notification-badge" class="notification-badge-dot" style="display: none;">0</span>
+        </button>
 
         <!-- User Profile Navbar Widget -->
         <div id="header-user-profile-wrapper" class="header-profile-dropdown-wrapper" style="display: none;">
@@ -344,6 +353,11 @@
         </div>
       </div>
 
+      <!-- Pending In-App Invitations Banner -->
+      <div id="pending-invitations-banner-container" class="pending-invitations-banner-container" style="display: none;">
+        <!-- Dynamically rendered pending invitation cards -->
+      </div>
+
       <div id="trips-container" class="trips-collection">
         <!-- Dynamically rendered collection entries -->
       </div>
@@ -439,33 +453,119 @@
   </div>
 
   <!-- MODAL: CREATE TRIP (Blank Paper Style) -->
-  <div id="modal-create-trip" class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-content paper-modal">
-      <div class="sheet-drag-handle" aria-hidden="true"></div>
+  <div id="modal-create-trip" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-trip-modal-title">
+    <div class="modal-content paper-modal create-trip-modal-content">
+      <div class="sheet-drag-handle" id="create-trip-drag-handle" aria-hidden="true"></div>
       <div class="modal-header">
-        <h2 class="modal-title title-serif">new trip</h2>
-        <button id="btn-close-create-trip" class="close-btn" aria-label="Close">
+        <h2 id="create-trip-modal-title" class="modal-title title-serif">new trip</h2>
+        <button type="button" id="btn-close-create-trip" class="close-btn" aria-label="Close">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
       </div>
-      <form id="form-create-trip">
-        <div class="form-group">
+      <form id="form-create-trip" novalidate>
+        <!-- Hidden inputs for backend form compatibility -->
+        <input type="hidden" id="input-trip-start" name="start_date" />
+        <input type="hidden" id="input-trip-end" name="end_date" />
+
+        <div class="form-group trip-name-group">
           <label class="form-label" for="input-trip-name">what are we calling this one?</label>
-          <input type="text" id="input-trip-name" class="form-input paper-input title-serif" placeholder="e.g. Himachal, Kyoto, Weekend in Goa" required autofocus />
+          <input type="text" id="input-trip-name" class="form-input paper-input trip-name-input title-serif" placeholder="e.g. Himachal, Kyoto, Weekend in Goa" required autofocus autocomplete="off" />
         </div>
-        <div class="form-group">
-          <label class="form-label" for="input-trip-start">when?</label>
-          <div class="form-row">
-            <input type="date" id="input-trip-start" class="form-input paper-input" placeholder="Start date" />
-            <input type="date" id="input-trip-end" class="form-input paper-input" placeholder="End date" />
+
+        <div class="form-group trip-dates-group">
+          <div class="datetime-label-row">
+            <label class="form-label">when is this journey? <span class="label-optional">(optional)</span></label>
+          </div>
+
+          <!-- Quick Travel Presets Pill Bar -->
+          <div class="trip-preset-chips" role="group" aria-label="Trip date presets">
+            <button type="button" class="trip-preset-chip" data-preset="ongoing" id="chip-preset-ongoing">
+              <span class="preset-icon">📍</span>
+              <span>ongoing</span>
+            </button>
+            <button type="button" class="trip-preset-chip" data-preset="weekend" id="chip-preset-weekend">
+              <span>this weekend</span>
+            </button>
+            <button type="button" class="trip-preset-chip" data-preset="month" id="chip-preset-month">
+              <span>this month</span>
+            </button>
+            <button type="button" class="trip-preset-chip" data-preset="custom" id="chip-preset-custom">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <span>calendar</span>
+            </button>
+            <button type="button" class="trip-preset-chip active" data-preset="none" id="chip-preset-none">
+              <span>no dates</span>
+            </button>
+          </div>
+
+          <!-- Travel Ticket Date Stamp Preview Card -->
+          <div id="trip-date-stamp-card" class="trip-date-stamp-card">
+            <div class="date-stamp-badge">
+              <svg class="date-stamp-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <span id="trip-date-stamp-text" class="date-stamp-text font-serif">No specific dates · Quiet journey</span>
+            </div>
+            <button type="button" id="btn-clear-custom-dates" class="btn-date-stamp-clear" title="Clear dates" style="display: none;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Custom Paper Mini-Calendar Widget (Expandable) -->
+          <div id="paper-calendar-widget" class="paper-calendar-widget" style="display: none;">
+            <div class="calendar-nav-header">
+              <button type="button" id="btn-cal-prev" class="btn-cal-nav" aria-label="Previous month">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <span id="calendar-month-year-label" class="calendar-month-title title-serif">September 2026</span>
+              <button type="button" id="btn-cal-next" class="btn-cal-nav" aria-label="Next month">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Days of Week Header -->
+            <div class="calendar-weekdays-row" aria-hidden="true">
+              <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+            </div>
+
+            <!-- Days Grid Container -->
+            <div id="calendar-days-grid" class="calendar-days-grid" role="grid"></div>
+
+            <div class="calendar-footer-hint">
+              <span>tap start date, then tap return date</span>
+            </div>
           </div>
         </div>
-        <div class="form-actions">
-          <button type="button" id="btn-cancel-create-trip" class="btn-secondary">cancel</button>
-          <button type="submit" class="btn-primary">begin</button>
+
+        <div class="form-actions trip-form-actions">
+          <button type="button" id="btn-cancel-create-trip" class="btn-secondary">
+            <span>cancel</span>
+          </button>
+          <button type="submit" id="btn-submit-create-trip" class="btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>begin journey</span>
+          </button>
         </div>
       </form>
     </div>
@@ -862,13 +962,13 @@
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <!-- Scripts with cache-busting -->
-  <script src="/js/api.js?v=2.28"></script>
-  <script src="/js/auth.js?v=2.28"></script>
-  <script src="/js/people.js?v=2.28"></script>
-  <script src="/js/invitations.js?v=2.28"></script>
-  <script src="/js/trips.js?v=2.28"></script>
-  <script src="/js/moments.js?v=2.28"></script>
-  <script src="/js/capture.js?v=2.28"></script>
-  <script src="/js/app.js?v=2.28"></script>
+  <script src="/js/api.js?v=2.34"></script>
+  <script src="/js/auth.js?v=2.34"></script>
+  <script src="/js/people.js?v=2.34"></script>
+  <script src="/js/invitations.js?v=2.34"></script>
+  <script src="/js/trips.js?v=2.34"></script>
+  <script src="/js/moments.js?v=2.34"></script>
+  <script src="/js/capture.js?v=2.34"></script>
+  <script src="/js/app.js?v=2.34"></script>
 </body>
 </html>

@@ -1,4 +1,3 @@
-
 # Postcards & Little Footnotes — Development Instructions
 
 ## 1. Purpose
@@ -67,11 +66,13 @@ Frontend:
 HTML5
 CSS3
 Vanilla JavaScript (ES Modules / Object namespaces)
+Client-side HEIC/HEIF on-demand WebAssembly converter (heic2any)
 
 Backend:
 Python (managed via uv)
 Flask
 Auth: Werkzeug password hashing & itsdangerous URLSafeTimedSerializer signed tokens
+Email: Standard Python smtplib + email.mime background thread worker
 
 Database:
 TiDB Cloud (MySQL-compatible relational database with SSL/TLS encryption)
@@ -99,6 +100,8 @@ The primary entities are:
 ```text
 User
 Trip
+TripMember
+TripInvitation
 Moment
 ```
 
@@ -106,11 +109,17 @@ Relationship:
 
 ```text
 User 1 ─────── N Trips 1 ─────── N Moments
+  │                │
+  ├── 1 ── N ──────┼─── 1 ── N (trip_members)
+  │                │
+  └── 1 ── N ──────┴─── 1 ── N (trip_invitations)
 ```
 
 * `users`: Stores account credentials (email, username, password_hash, created_at).
 * `trips`: Belongs optionally or strictly to a user (`user_id` foreign key with `ON DELETE CASCADE`). Unauthenticated/demo trips have `user_id = NULL`.
-* `moments`: Belongs to a trip (`trip_id` foreign key with `ON DELETE CASCADE`).
+* `trip_members`: Stores member associations with granular permissions (`can_add_moments`, `can_edit_moments`, `can_delete_moments`) and role (`creator`, `member`).
+* `trip_invitations`: Stores pending, accepted, or revoked invitations with unique tokens and optional email dispatches.
+* `moments`: Belongs to a trip (`trip_id` foreign key with `ON DELETE CASCADE`), retaining snapshot `author_name` and optional `user_id`.
 
 A moment may contain:
 
@@ -153,11 +162,25 @@ GET    /api/auth/me
 POST   /api/auth/logout
 DELETE /api/auth/account
 
-Trips:
+Trips & Shared Journeys:
 GET    /api/trips
 POST   /api/trips
 GET    /api/trips/<trip_id>
 DELETE /api/trips/<trip_id>
+POST   /api/trips/<trip_id>/leave
+
+Shared Members & Invitations:
+GET    /api/trips/<trip_id>/members
+PATCH  /api/trips/<trip_id>/members/<user_id>
+DELETE /api/trips/<trip_id>/members/<user_id>
+GET    /api/users/search
+GET    /api/trips/<trip_id>/invitations
+POST   /api/trips/<trip_id>/invitations
+DELETE /api/trips/<trip_id>/invitations/<id>
+GET    /api/invitations/pending
+GET    /api/invitations/<token>
+POST   /api/invitations/<token>/accept
+POST   /api/invitations/<token>/decline
 
 Moments:
 GET    /api/trips/<trip_id>/moments
@@ -192,12 +215,15 @@ Use vanilla JavaScript organized into cohesive modules:
 
 ```text
 frontend/js/
-├── api.js       # Centralized API service with bearer auth token handling
-├── app.js       # App initialization, SPA router (#trips, #trip/<id>, #auth, #privacy), modals, toast notifications
-├── auth.js      # Sign in, registration, session management, account deletion
-├── trips.js     # Trips collection view (List mode & Desk Canvas zoom-out mode), create trip
-├── moments.js   # Chronological day-grouped timeline, granular photo/footnote deletion
-└── capture.js   # Instant capture modal, camera capture, file upload, custom date & time
+├── api.js           # Centralized API service with bearer auth token handling & sharing endpoints
+├── app.js           # App initialization, SPA router (#trips, #trip/<id>, #auth, #privacy, #invite/<token>), modals, toast notifications
+├── auth.js          # Sign in, registration, session management, account deletion
+├── trips.js         # Trips collection view (List mode & Desk Canvas zoom-out mode), interactive tactile calendar picker
+├── people.js        # Trip member roster, permission management, invite link generator
+├── invitations.js   # Invitation preview, acceptance, decline, and pending invite notifications
+├── moments.js       # Chronological day-grouped timeline, quiet author attributions, granular photo/footnote deletion
+├── capture.js       # Instant capture modal, camera capture, drag-and-drop, custom date/time picker, HEIC converter
+└── heic2any.min.js  # WebAssembly client-side HEIC/HEIF image transcoder
 ```
 
 Avoid:
@@ -265,7 +291,7 @@ manifest.json
 service-worker.js
 ```
 
-When adding new static assets that affect the application shell, update the service worker cache strategy if required.
+When adding new static assets that affect the application shell, update the service worker cache strategy and increment cache version (`postcards-shell-v6`).
 
 Do not claim offline support for functionality that has not actually been implemented.
 
@@ -357,6 +383,7 @@ After **every meaningful project change**, update:
 ```text
 architecture.md
 design.md
+PROJECT_INSTRUCTIONS.md
 ```
 
 Do not treat these files as one-time documentation.
@@ -365,7 +392,7 @@ They are living project specifications.
 
 ---
 
-## 15. What Counts as a Meaningful Change?
+# 15. What Counts as a Meaningful Change?
 
 Update the documentation when a change affects:
 
@@ -522,12 +549,16 @@ Implemented features:
 Traveler authentication & registration (email/password with signed token sessions)
 Account management & complete data purge (TiDB + R2)
 Privacy Policy modal & zero-tracking commitment
-Create & manage trips (scoped to user or guest demo)
+Create & manage trips (with tactile calendar date range picker and quick presets)
+Shared Trips: multi-traveler journey collaboration with creator/member roles
+Granular permissions (can_add_moments, can_edit_moments, can_delete_moments)
+Direct email invitations & shareable invite links with background SMTP mailer
+In-app incoming invitation badges and preview dialogs
 List view & Desk Canvas (Zoom Out) spread view for trips
-Instant capture modal (photo, footnote caption, custom date & time)
-Chronological day-grouped timeline
+Instant capture modal (photo, footnote caption, custom date & time, drag-and-drop, HEIC conversion)
+Chronological day-grouped timeline with quiet typographic author attribution (— Raj, — Ananya)
 Granular deletion (delete entire moment, photo-only, or footnote-only)
-PWA installation & service worker shell caching
+PWA installation & service worker shell caching (v6)
 Private Cloudflare R2 image storage with presigned and streaming fallback uploads
 TiDB Cloud relational persistence with TLS
 Health check & keep-alive ping endpoints
@@ -583,3 +614,9 @@ The goal is a small, pleasant product that makes capturing trip memories effortl
 - Added granular deletion controls for individual photos and footnotes in moments.
 - Enhanced modal interactions, scroll locks, and responsive editorial layout.
 
+### 2026-09-13
+- Implemented Shared Trips with `trip_members` and `trip_invitations` tables and granular member permissions.
+- Added quiet typographic author attribution (`— Raj`, `— Ananya`) on shared moments.
+- Built automated background SMTP email invitations and in-app pending invite notifications.
+- Added interactive tactile calendar date-range picker with quick presets and swipe-to-dismiss sheet.
+- Added drag-and-drop photo capture and client-side on-demand HEIC to JPEG WebAssembly transcoding.

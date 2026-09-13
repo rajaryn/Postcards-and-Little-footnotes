@@ -66,7 +66,7 @@ def get_trip_members(trip_id: int):
         FROM trip_members tm
         JOIN users u ON tm.user_id = u.id
         WHERE tm.trip_id = %s
-        ORDER BY tm.role DESC, tm.joined_at ASC
+        ORDER BY (CASE WHEN tm.role = 'creator' THEN 0 ELSE 1 END), tm.joined_at ASC
     """
     raw_members = db.query_db(sql, (trip_id,)) or []
 
@@ -74,9 +74,11 @@ def get_trip_members(trip_id: int):
     for m in raw_members:
         display_name = m.get("username") or (m.get("email", "").split("@")[0] if m.get("email") else "Traveler")
         members.append({
+            "id": m["user_id"],
             "membership_id": m["membership_id"],
             "user_id": m["user_id"],
             "name": display_name,
+            "username": m.get("username"),
             "email": m["email"],
             "role": m["role"],
             "can_add_moments": bool(m["can_add_moments"]),

@@ -2193,7 +2193,67 @@ The timeline interaction reflects this:
 
 ---
 
-# 68. Change Log
+# 68. Shared Journeys & Collaborative Travel Desk
+
+Postcards & Little Footnotes supports travelling together without turning into a social network.
+
+### Collaborative Travel Desk
+* Multiple travelers can contribute photographs and footnotes to the same journey.
+* Rather than separating memories into user profiles or author tabs, all moments merge organically into a single chronological timeline ordered strictly by timestamp.
+* The collection feels like one shared box of memories from people who took the trip together.
+
+### Quiet Typographic Attribution
+* Moments display quiet, humble author attributions (`— Raj`, `— Ananya`) styled in muted marginalia typography.
+* Author stamps never look like social badges, avatars, or likes. They read like handwriting in a shared notebook.
+
+### People Modal & Granular Permissions
+* Accessible via a quiet "People" button in the trip header.
+* Trip creators can manage the roster, search other travelers by name or email, and configure granular permissions:
+  * *Add moments*
+  * *Edit own moments*
+  * *Delete own moments*
+* Members can leave a shared trip at any time; their contributed memories and author attributions remain permanently preserved in the shared journey.
+
+### Invitations & In-App Alerts
+* Creators can send direct invitations (which dispatch automated background SMTP emails) or generate private shareable invite links.
+* Invited travelers receive a clean, privacy-first preview before accepting or declining.
+* Unopened invitations are surfaced via a gentle in-app notification banner at the top of the Trips view.
+
+---
+
+# 69. The Tactile Date Range Picker & Gesture Sheet
+
+Creating a trip includes an interactive, physical-feeling date selector built directly into the envelope modal.
+
+### Inline Calendar & Date Stamp
+* An embedded monthly calendar grid allows intuitive single-tap or two-tap date range selection.
+* A prominent tactile date stamp dynamically updates (*"NO DATES SET"*, *"07 SEP — 10 SEP 2026"*).
+* Quick preset chips allow one-tap selection of common journey durations:
+  * **Undated**: For open-ended or spontaneous trips
+  * **This Weekend**: Automatically calculates the upcoming Friday–Sunday
+  * **Next 7 Days**: Pre-fills the next full week
+  * **Custom Range**: Activates the month view calendar
+
+### Mobile Bottom-Sheet & Swipe-to-Dismiss
+* On mobile screens, the Create Trip modal slides up as an editorial bottom sheet.
+* A tactile drag handle and header area support a smooth downward swipe-to-dismiss gesture with spring physics thresholding.
+
+---
+
+# 70. Natural Media Input & Apple HEIC Support
+
+Capturing memories should never be blocked by technical file formats or tedious file selection dialogues.
+
+### Drag-and-Drop Surface
+* The capture modal's photo drop zone supports direct file drag-and-drop on desktop and tablets with visual feedback on drag-over.
+
+### Client-Side Apple HEIC/HEIF Transcoding
+* Photos taken on iPhones in high-efficiency HEIC/HEIF format are converted to standard JPEG on-demand in the browser via WebAssembly (`heic2any.min.js`).
+* The conversion occurs seamlessly before uploading to Cloudflare R2, ensuring instant cross-browser compatibility without requiring heavy server-side image processing.
+
+---
+
+# 71. Change Log
 
 ### 2026-09-07
 
@@ -2239,8 +2299,17 @@ The timeline interaction reflects this:
 * Added granular curation controls allowing independent deletion of postcard prints and footnote notes.
 * Refined modal transition animations and touch-lock mechanics for mobile devices.
 
+### 2026-09-13
+
+* Designed and implemented Shared Journeys: multi-traveler collaborative trips, quiet typographic author attribution (`— Raj`, `— Ananya`), People modal, granular member permissions, direct search invitations, and private invite links.
+* Built in-app pending invitation notification banner and background SMTP invitation email notifications.
+* Designed and built the interactive tactile calendar date-range picker with quick presets (*Undated*, *This Weekend*, *Next 7 Days*, *Custom Range*) and animated date stamps.
+* Added mobile swipe-to-dismiss gesture physics for bottom-sheet modals.
+* Added drag-and-drop photo input and client-side on-demand HEIC/HEIF to JPEG WebAssembly transcoding.
+* Incremented Service Worker shell cache version to `postcards-shell-v6`.
+
 ---
 
-# 69. One Sentence
+# 72. One Sentence
 
 **Postcards & Little Footnotes is a digital box of things you brought home from a trip.**

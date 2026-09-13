@@ -107,6 +107,11 @@ class Config:
         """Returns True if SMTP host is specified."""
         return bool(cls.SMTP_HOST)
 
+    @classmethod
+    def is_email_configured(cls) -> bool:
+        """Returns True if SMTP is configured."""
+        return cls.is_smtp_configured()
+
 
 # Ensure local fallback upload folder exists
 Config.LOCAL_UPLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
